@@ -34,7 +34,7 @@ A buildable MVP spec for a **mediator-training simulator**: a human practices as
 
 - Prompt compiler structure: what the compiled prompt for each seat contains and how it's versioned — interfaces (01) and turn model (02) are settled; unblocked.
 - Reaction reducer design: how `Reaction` metadata maps to deterministic changes in `NegotiationState` — depends on scenario schema (06). Plus an explicit revisit: OUTLINE's signal-space `Reaction` (`perceivedRespect`/`perceivedPressure`/`topicTriggers`) vs MVP state-unit deltas — settle during prompt-compiler work.
-- XState session machine shape: seven phases decided in [02](./issues/02-turn-orchestration.md); remaining work is guards/actors wiring (PLAN §4) at implementation time.
+- XState session machine shape: seven phases decided in [02](./issues/02-turn-orchestration.md); guards/actors wiring + engine lift into the app ticketed as [07](./issues/07-xstate-session-actor.md).
 - Audit record schema per model call (PLAN §10) — depends on 01; `InvocationRecord` sketched in the prototype, retry/attempt semantics decided in [02](./issues/02-turn-orchestration.md).
 - Phase 0 vertical-slice test strategy: which automated tests prove caucus visibility + reducer determinism — depends on 01, 02; both settled, unblocked.
 - Session UX flow (the actual screens a mediator sees during a run, including transcript review at session end) — unblocked by 02: the driver's mediator actions (send/address, open/close caucus, declare phase) are the UI's action surface.
