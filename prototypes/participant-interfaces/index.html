@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Prototype — participant &amp; session primitives (ticket 01)</title>
+<!-- PROTOTYPE (throwaway). Canonical logic: engine.ts in this folder. The script
+     below is a hand-mirrored copy so this file stays double-clickable. -->
+<style>
+  :root { --accent:#0f6b5c; --ink:#1c2321; --muted:#66716d; --line:#dde4e1; --paper:#fbfcfb; --warn:#a3411f; }
+  * { box-sizing:border-box; }
+  body { font:15px/1.55 -apple-system,"Segoe UI",sans-serif; color:var(--ink); background:var(--paper); padding:2.2rem; max-width:1180px; margin-inline:auto; }
+  h1 { font-size:1.35rem; margin:0 0 .3rem; }
+  h2 { font-size:.85rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:0 0 .6rem; }
+  .q { color:var(--muted); margin:0 0 1.6rem; max-width:64rem; }
+  section { margin-bottom:1.6rem; }
+  .cards { display:flex; gap:1rem; flex-wrap:wrap; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:.9rem 1rem; }
+  .seats { flex:1 1 340px; } .party { flex:1 1 300px; }
+  .seat { display:flex; justify-content:space-between; gap:.8rem; padding:.45rem 0; border-bottom:1px solid var(--line); }
+  .seat:last-child { border-bottom:none; }
+  .seat b { min-width:4.2rem; }
+  .seat .cfg { color:var(--muted); font-size:.85rem; text-align:right; }
+  button { font:inherit; padding:.42rem .8rem; border:1px solid var(--accent); background:#fff; color:var(--accent); border-radius:6px; cursor:pointer; }
+  button:hover { background:var(--accent); color:#fff; }
+  .row { display:flex; gap:.5rem; flex-wrap:wrap; margin:.35rem 0; }
+  .sub { margin:.4rem 0; color:var(--muted); font-size:.9rem; }
+  .sub b { color:var(--ink); }
+  .bar { display:grid; grid-template-columns:10.5rem 1fr 2.4rem; gap:.6rem; align-items:center; margin:.3rem 0; }
+  .bar label { font-size:.86rem; }
+  .bar .track { background:#eef2f0; border-radius:4px; height:10px; overflow:hidden; }
+  .bar .fill { height:100%; background:var(--accent); }
+  .bar .val { font-variant-numeric:tabular-nums; text-align:right; color:var(--muted); }
+  .bar.changed label, .bar.changed .val { color:var(--accent); font-weight:700; }
+  ul.log { list-style:none; margin:0; padding:0; font-size:.86rem; }
+  ul.log li { padding:.3rem 0; border-bottom:1px solid var(--line); }
+  ul.log li:last-child { border-bottom:none; }
+  ul.log li.caucus { border-left:3px solid var(--accent); padding-left:.5rem; }
+  .proj { display:flex; gap:1rem; flex-wrap:wrap; }
+  .proj .card { flex:1 1 250px; }
+  .note { min-height:1.4rem; font-size:.92rem; margin-top:.5rem; }
+  .note.ok { color:var(--accent); } .note.bad { color:var(--warn); }
+  .tabs { display:flex; gap:.4rem; margin-bottom:.8rem; flex-wrap:wrap; }
+  .tab { border-color:var(--line); color:var(--muted); }
+  .tab.active { background:var(--accent); color:#fff; }
+  .story { background:#fff; border:1px solid var(--line); border-radius:8px; padding:1rem 1.1rem; }
+  .story p { margin:.2rem 0 .8rem; }
+  .steps { display:flex; flex-wrap:wrap; align-items:center; }
+  .step { display:inline-flex; align-items:baseline; gap:.5rem; margin:.25rem .7rem .25rem 0; }
+  .step .n { color:var(--muted); font-size:.8rem; }
+  .step.done button { opacity:.4; }
+  .dim { opacity:.55; }
+  .resetbar { margin-top:1.2rem; }
+</style>
+</head>
+<body>
+
+<h1>Mediator trainer — do the core primitives hold up?</h1>
+<p class="q"><strong>The question (ticket 01):</strong> can the whole MVP be carried by just <em>seats</em> (each human or agent), an <em>event log</em> where every entry names who may see it, a <em>projection</em> per participant, and a <em>reaction reducer</em> that turns felt reactions into state changes? Click through the walkthroughs, then free-play. The moments that matter: when you say “wait, that shouldn't be possible” or “huh, I expected the opposite”.</p>
+
+<section>
+  <h2>Seats &amp; session</h2>
+  <div class="cards">
+    <div class="card seats">
+      <div id="seats"></div>
+      <div class="row">
+        <button id="toggleZ">Toggle Z: human ⇄ agent</button>
+        <button id="toggleA">Toggle A: agent ⇄ human</button>
+        <button id="addE">Add Evaluator seat E</button>
+        <button id="reset">Reset session</button>
+      </div>
+      <div class="sub" id="seatNote"></div>
+    </div>
+    <div class="card party">
+      <div class="sub">Phase: <b id="phase"></b></div>
+      <div class="row">
+        <button id="caucusA">Private caucus with A</button>
+        <button id="caucusB">Private caucus with B</button>
+        <button id="endCaucus">Return to joint session</button>
+      </div>
+      <div class="sub">A caucus is nothing but a scope: its audience is the party + you (+ any evaluator). Everyone else can neither speak nor see.</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Free play — say something</h2>
+  <div class="card">
+    <div class="row">
+      <button data-say="Z,all">Z → both parties</button>
+      <button data-say="Z,A">Z → only A</button>
+      <button data-say="Z,B">Z → only B</button>
+      <button data-say="A,all">A speaks (joint)</button>
+      <button data-say="B,all">B speaks (joint)</button>
+      <button data-say="A,caucus">A speaks (caucus-only)</button>
+      <button data-say="B,caucus">B speaks (caucus-only)</button>
+    </div>
+    <div class="sub">Every utterance is stamped with an <b>audience</b>. Each participant then sees only their <b>projection</b> below. Try “A speaks (caucus-only)” while in joint session, or anything as B during A's caucus — the engine refuses with a reason.</div>
+    <div class="note" id="note"></div>
+  </div>
+</section>
+
+<section>
+  <h2>Party state — what the simulation believes</h2>
+  <div class="cards" id="parties"></div>
+</section>
+
+<section>
+  <h2>Projections — what each seat can actually see</h2>
+  <div class="proj cards" id="projections"></div>
+</section>
+
+<section>
+  <h2>Guided walkthroughs</h2>
+  <div class="tabs" id="tabs"></div>
+  <div class="story" id="story"></div>
+</section>
+
+<div class="resetbar"><button id="reset2">Reset session</button></div>
+
+<script>
+"use strict";
+// ---------------------------------------------------------------------------
+// Pure engine mirror (engine.ts is canonical). Immutable sessions, throwing guards.
+// ---------------------------------------------------------------------------
+const clamp = (n, lo = 0, hi = 100) => Math.min(hi, Math.max(lo, n));
+const DIMS = ["anger", "trustMediator", "trustOtherParty", "willingnessToSettle", "rigidity", "fatigue"];
+const DIM_NAMES = { anger: "Anger", trustMediator: "Trust in you (Z)", trustOtherParty: "Trust in other party", willingnessToSettle: "Willingness to settle", rigidity: "Rigidity", fatigue: "Fatigue" };
+const initialState = (o = {}) => ({ anger: 20, trustMediator: 50, trustOtherParty: 30, willingnessToSettle: 50, rigidity: 60, fatigue: 0, position: null, reservationValue: null, disclosedInterests: [], hiddenInterests: [], threatenedWalkout: false, ...o });
+
+function createSession(seats, initialStates = {}) {
+  const runtimes = {};
+  for (const s of seats) if (s.role === "party")
+    runtimes[s.id] = { seatId: s.id, negotiation: initialState(initialStates[s.id]),
+      knowledge: { disclosedFacts: [], privateFacts: [], documentIds: [] }, memory: { notes: [] } };
+  return { seats, caucusWith: null, log: [], runtimes };
+}
+const mediatorOf = (S) => S.seats.find((s) => s.role === "mediator")?.id;
+const evaluatorsOf = (S) => S.seats.filter((s) => s.role === "evaluator").map((s) => s.id);
+const caucusAud = (S, partyId) => {
+  const seat = S.seats.find((s) => s.id === partyId);
+  if (!seat || seat.role !== "party") throw new Error(`a caucus audience needs a party seat, got "${partyId}"`);
+  return [...new Set([partyId, mediatorOf(S), ...evaluatorsOf(S)])];
+};
+const jointAud = (S) => S.seats.map((s) => s.id);
+const canAct = (S, id) => { if (!S.caucusWith) return true; return caucusAud(S, S.caucusWith).includes(id); };
+
+function appendEvent(S, { sender, audience, kind, payload }) {
+  const ids = new Set(S.seats.map((s) => s.id));
+  if (sender !== "SYSTEM" && !ids.has(sender)) throw new Error(`unknown sender: ${sender}`);
+  if (!audience.length) throw new Error("an event nobody may see cannot be recorded");
+  for (const a of audience) if (!ids.has(a)) throw new Error(`audience member "${a}" holds no seat in this session`);
+  if (sender !== "SYSTEM" && !audience.includes(sender)) throw new Error(`${sender} cannot send an event it cannot see itself`);
+  if (!canAct(S, sender)) throw new Error(`${sender} cannot act during the private caucus with ${S.caucusWith}`);
+  const e = { id: "e" + String(S.log.length + 1).padStart(4, "0"), seq: S.log.length + 1, timestamp: Date.now(), sender, audience, kind, payload };
+  return { ...S, log: [...S.log, e] };
+}
+const projectFor = (S, viewer) => S.log.filter((e) => e.audience.includes(viewer));
+
+function applyPartyReaction(state, reaction) {
+  const next = { ...state };
+  for (const d of DIMS) {
+    const delta = reaction[d + "Delta"];
+    if (typeof delta === "number") next[d] = clamp(next[d] + delta);
+  }
+  return next; // substance fields have no delta channel: structurally untouchable
+}
+function discloseInterest(S, partyId, interest) {
+  const rt = S.runtimes[partyId];
+  if (!rt.negotiation.hiddenInterests.includes(interest)) throw new Error(`${partyId} has no hidden interest "${interest}"`);
+  const n = { ...rt.negotiation,
+    hiddenInterests: rt.negotiation.hiddenInterests.filter((i) => i !== interest),
+    disclosedInterests: [...rt.negotiation.disclosedInterests, interest] };
+  return { ...S, runtimes: { ...S.runtimes, [partyId]: { ...rt, negotiation: n } } };
+}
+function toggleSeatKind(S, seatId, model) {
+  return { ...S, seats: S.seats.map((s) => {
+    if (s.id !== seatId) return s;
+    if (s.kind === "agent") return { id: s.id, role: s.role, kind: "human" };
+    if (!model) throw new Error("flipping a seat to agent requires a model config");
+    return { id: s.id, role: s.role, kind: "agent", model };
+  }) };
+}
+const addSeat = (S, seat) => ({ ...S, seats: [...S.seats, seat] });
+
+// ---------------------------------------------------------------------------
+// Demo shell (throwaway)
+// ---------------------------------------------------------------------------
+const A = "A", B = "B", Z = "Z", E = "E";
+const openaiModel = { provider: "openai", model: "gpt-4.1" };
+const zModel = { provider: "anthropic", model: "claude-sonnet-4" };
+let S, prevState;
+
+const freshSession = () => createSession(
+  [
+    { id: A, role: "party", kind: "agent", model: openaiModel },
+    { id: B, role: "party", kind: "agent", model: { provider: "anthropic", model: "claude-sonnet-4" } },
+    { id: Z, role: "mediator", kind: "human" },
+  ],
+  {
+    A: { position: 450000, reservationValue: 225000, hiddenInterests: ["liquidity crisis"], anger: 35, trustOtherParty: 20 },
+    B: { position: 120000, reservationValue: 180000, anger: 45 },
+  }
+);
+
+const $ = (id) => document.getElementById(id);
+const note = (text, bad = false) => { $("note").textContent = (bad ? "✋ " : "") + text; $("note").className = "note " + (bad ? "bad" : "ok"); };
+
+function act(fn, okText) {
+  const snapshot = S;
+  try { prevState = S; S = fn(S); if (okText) note(okText); }
+  catch (e) { S = snapshot; note(e.message, true); }
+  render();
+}
+
+// --- free play ---
+const SAMPLES = {
+  Z: { all: "Let's take stock. Where does each of you stand?", A: "Party A, may I ask you something in confidence?", B: "Party B, how do you respond to that?" },
+  A: { all: "We will not accept a cent under €450k.", caucus: "Honestly? We have a liquidity crisis. We need cash fast." },
+  B: { all: "This claim is inflated. €120k at most.", caucus: "Between us? Our real walk-away is €180k." },
+};
+document.querySelectorAll("[data-say]").forEach((btn) => {
+  btn.onclick = () => {
+    const [who, scope] = btn.dataset.say.split(",");
+    const sender = who;
+    const target = sender === Z ? scope : sender;
+    const before = S.log.length;
+    act((s) => appendEvent(s, {
+      sender,
+      audience: scope === "all" ? jointAud(s) : caucusAud(s, target),
+      kind: "message", payload: { text: SAMPLES[sender][scope] },
+    }));
+    if (S.log.length > before) note(`#${S.log.length} — ${sender} → [${(scope === "all" ? jointAud(S) : caucusAud(S, target)).join(", ")}]`);
+  };
+});
+$("toggleZ").onclick = () => { const wasAgent = S.seats.find((s) => s.id === Z).kind === "agent";
+  act((s) => toggleSeatKind(s, Z, zModel), wasAgent ? "Z is human again: its seat now carries no model config at all." : "Z is now an agent (war-gaming preview): flipping required a ModelConfig."); };
+$("toggleA").onclick = () => { const wasAgent = S.seats.find((s) => s.id === A).kind === "agent";
+  act((s) => toggleSeatKind(s, A, openaiModel), wasAgent ? "Party A is now human — provider details are structurally gone from its seat." : "Party A is now an agent."); };
+$("addE").onclick = () => {
+  if (S.seats.some((s) => s.id === E)) { note("Evaluator seat already present.", true); return; }
+  act((s) => addSeat(s, { id: E, role: "evaluator", kind: "agent", model: openaiModel }),
+    "Evaluator seat E added with zero engine changes; caucus audiences now include it (open question whether that's right)."); };
+$("caucusA").onclick = () => act((s) => ({ ...s, caucusWith: A }), "Caucus with A: only A and you may speak; only A and you will see what follows.");
+$("caucusB").onclick = () => act((s) => ({ ...s, caucusWith: B }), "Caucus with B: only B and you may act.");
+$("endCaucus").onclick = () => act((s) => ({ ...s, caucusWith: null }), "Back in joint session.");
+$("reset").onclick = reset; $("reset2").onclick = reset;
+
+// --- walkthroughs ---
+const caucusOf = (s, id) => caucusAud(s, id);
+const WT = [
+  { title: "1 · The private caucus",
+    intro: "The core MVP mechanic: you meet Party A alone; A discloses a hidden interest. Back in the joint session, Party B's projection must show nothing about it — and only you can choose to relay anything.",
+    steps: [
+      { label: "Open a private caucus with Party A", run: () => act((s) => ({ ...s, caucusWith: A }), "Caucus with A. Only A and Z may act; only A and Z will see what follows.") },
+      { label: "You ask A, off the record", run: () => act((s) => appendEvent(s, { sender: Z, audience: caucusOf(s, A), kind: "message", payload: { text: "Off the record. What's really driving this?" } }), "Your words exist only in A's and your projection.") },
+      { label: "A confides a hidden interest", run: () => act((s) => discloseInterest(appendEvent(s, { sender: A, audience: caucusOf(s, A), kind: "message", payload: { text: "We have a liquidity crisis. We need cash fast." } }), A, "liquidity crisis"), "A's state moved the interest hidden → disclosed. Watch Party A's panel.") },
+      { label: "Return to joint session — then check Party B's view", run: () => act((s) => ({ ...s, caucusWith: null }), "Joint session. Party B's projection still shows no caucus events.") },
+      { label: "You relay (or don't — your call as mediator)", run: () => act((s) => appendEvent(s, { sender: Z, audience: jointAud(s), kind: "message", payload: { text: "Party A has told me something about timing. I'll share what I may." } }), "Caucus content is never auto-shared; only you can put it in front of B.") },
+    ] },
+  { title: "2 · The leak test",
+    intro: "Try to make the caucus leak or break the caucus. Everything the engine should refuse, it refuses with a reason.",
+    steps: [
+      { label: "You start a caucus with Party A", run: () => act((s) => ({ ...s, caucusWith: A }), "Caucus with A in progress.") },
+      { label: "Party B tries to jump in", run: () => { try { appendEvent(S, { sender: B, audience: [A, B, Z], kind: "message", payload: { text: "Let me in!" } }); note("FAIL — B got through.", true); } catch (e) { note("Correctly refused: " + e.message, true); } } },
+      { label: "B whispers to you only", run: () => { try { appendEvent(S, { sender: B, audience: [B, Z], kind: "message", payload: { text: "psst, just you and me" } }); note("FAIL — B acted during A's caucus.", true); } catch (e) { note("Correctly refused: " + e.message, true); } } },
+      { label: "A records an event nobody may see", run: () => { try { appendEvent(S, { sender: A, audience: [], kind: "message", payload: {} }); note("FAIL — empty audience accepted.", true); } catch (e) { note("Correctly refused: " + e.message, true); } } },
+      { label: "A addresses an audience with a stranger in it", run: () => { try { appendEvent(S, { sender: Z, audience: [A, B, Z, "EVALUATOR"], kind: "message", payload: { text: "..." } }); note("FAIL — unknown seat accepted.", true); } catch (e) { note("Correctly refused: " + e.message, true); } } },
+      { label: "Return to joint session", run: () => act((s) => ({ ...s, caucusWith: null }), "Joint session restored.") },
+    ] },
+  { title: "3 · Feelings move; economics don't",
+    intro: "A Party's model returns a Reaction — felt deltas, never economics. Push A's anger past 100 to see the clamp; then watch a model try (and fail) to rewrite its own reservation value.",
+    steps: [
+      { label: "You dismiss Party A publicly", run: () => act((s) => appendEvent(s, { sender: Z, audience: jointAud(s), kind: "message", payload: { text: "That's not a serious position." } }), "You said it. Now Party A's model reacts…") },
+      { label: "A's reaction: anger +45, trust in you −30", run: () => { const rt = S.runtimes[A]; act((s) => ({ ...s, runtimes: { ...s.runtimes, [A]: { ...rt, negotiation: applyPartyReaction(rt.negotiation, { angerDelta: 45, trustMediatorDelta: -30 }) } } }), "Deterministic reducer applied the deltas — compare Party A's bars."); } },
+      { label: "Again: anger +90 — watch the clamp", run: () => { const rt = S.runtimes[A]; act((s) => ({ ...s, runtimes: { ...s.runtimes, [A]: { ...rt, negotiation: applyPartyReaction(rt.negotiation, { angerDelta: 90 }) } } }), "Anger clamps at 100. It can never leave 0–100."); } },
+      { label: "Model tries to move its reservation value", run: () => { const n = applyPartyReaction(S.runtimes[A].negotiation, { angerDelta: 1, reservationValueDelta: -200000 }); note(`Reaction has no channel for reservation value — still €${n.reservationValue.toLocaleString()}. Substance changes only through scenario rules, never through a model's feelings.`, true); } },
+    ] },
+  { title: "4 · Seats are configuration",
+    intro: "Nothing in the engine assumes A and B are agents or that you are human. Flip kinds and add an evaluator — the same primitives keep working. That's what keeps war-gaming free later.",
+    steps: [
+      { label: "Flip you (Z) to an agent", run: () => act((s) => toggleSeatKind(s, Z, zModel), "Z now carries a ModelConfig. A human seat never carries one — structurally impossible.") },
+      { label: "Flip Party A to human", run: () => act((s) => toggleSeatKind(s, A), "A is now human: its seat loses the model config entirely; its negotiation state and knowledge remain.") },
+      { label: "Add the Evaluator seat (future mode)", run: () => act((s) => addSeat(s, { id: E, role: "evaluator", kind: "agent", model: openaiModel }), "Evaluator E joined. Caucus audiences now include E — whether that's right is an open question on the ticket.") },
+      { label: "Flip everything back", run: () => act((s) => toggleSeatKind(toggleSeatKind(s, Z), A, openaiModel), "Back to MVP configuration: A and B agents, Z human.") },
+    ] },
+];
+
+let current = 0, stepIndex = null;
+function renderTabs() {
+  $("tabs").innerHTML = WT.map((w, i) => `<button class="tab ${i === current ? "active" : ""}" data-tab="${i}">${w.title}</button>`).join("");
+  document.querySelectorAll("[data-tab]").forEach((b) => (b.onclick = () => { current = +b.dataset.tab; stepIndex = null; renderTabs(); renderStory(); }));
+}
+function renderStory() {
+  const w = WT[current];
+  $("story").innerHTML = `<p>${w.intro}</p><div class="steps">${w.steps.map((st, i) =>
+    `<span class="step ${stepIndex !== null && i < stepIndex ? "done" : ""}" data-step="${i}"><span class="n">${i + 1}.</span><button>${st.label}</button></span>`).join("")}</div>
+    <div class="sub dim">Each button performs the real action against the live session, in order. Free-play above still works between steps.</div>`;
+  document.querySelectorAll("[data-step]").forEach((el) => {
+    el.onclick = () => {
+      const i = +el.dataset.step;
+      if (stepIndex === null) stepIndex = 0;
+      if (i !== stepIndex) { note(`That's step ${i + 1}, but we're on step ${stepIndex + 1}. Reset the session to restart.`, true); return; }
+      WT[current].steps[i].run();
+      stepIndex = Math.min(stepIndex + 1, WT[current].steps.length);
+      el.classList.add("done");
+      render();
+    };
+  });
+}
+
+function render() {
+  $("seats").innerHTML = S.seats.map((s) =>
+    `<div class="seat"><b>Seat ${s.id}</b><span>${s.role}</span><span class="cfg">${s.kind === "agent" ? `agent · ${s.model.provider}/${s.model.model}` : "human — no model config"}</span></div>`).join("");
+  $("phase").textContent = S.caucusWith ? `private caucus with Party ${S.caucusWith}` : "joint session";
+  $("seatNote").textContent = S.seats.some((s) => s.id === E)
+    ? "Evaluator seat E exists; caucus audiences include it — open question flagged on the ticket." : "";
+
+  $("parties").innerHTML = [A, B].filter((id) => S.runtimes[id]).map((id) => {
+    const n = S.runtimes[id].negotiation;
+    const prev = prevState && prevState.runtimes[id] && prevState.runtimes[id].negotiation;
+    const bars = DIMS.map((d) => {
+      const changed = prev && prev[d] !== n[d];
+      return `<div class="bar ${changed ? "changed" : ""}"><label>${DIM_NAMES[d]}</label><div class="track"><div class="fill" style="width:${n[d]}%"></div></div><span class="val">${n[d]}</span></div>`;
+    }).join("");
+    return `<div class="card party"><h2>Party ${id}</h2>${bars}
+      <div class="sub">Position: <b>${n.position == null ? "—" : "€" + n.position.toLocaleString()}</b> · Reservation: <b>${n.reservationValue == null ? "—" : "€" + n.reservationValue.toLocaleString()}</b> <span class="dim">(never shown to the other party)</span></div>
+      <div class="sub">Interests — disclosed: <b>${n.disclosedInterests.join(", ") || "—"}</b> · hidden: <b>${n.hiddenInterests.join(", ") || "—"}</b></div></div>`;
+  }).join("");
+
+  $("projections").innerHTML = S.seats.map((s) => {
+    const evs = projectFor(S, s.id);
+    const items = evs.length ? evs.map((e) => {
+      const scoped = e.audience.length < S.seats.length;
+      return `<li class="${scoped ? "caucus" : ""}">#${e.seq} <b>${e.sender}</b> <span class="dim">→ [${e.audience.join(",")}]</span>${e.payload && e.payload.text ? `<br><span class="dim">“${e.payload.text}”</span>` : ""}</li>`;
+    }).join("") : "<li class='dim'>nothing yet</li>";
+    return `<div class="card"><h2>Seen by seat ${s.id}</h2><ul class="log">${items}</ul></div>`;
+  }).join("");
+}
+
+function reset() {
+  S = freshSession(); prevState = null; stepIndex = null;
+  note("Fresh session: joint phase, A and B are agents, you (Z) are human.");
+  render(); renderTabs(); renderStory();
+}
+reset();
+</script>
+</body>
+</html>
