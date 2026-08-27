@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Turn model — clickable mirror (ticket 02)</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 60rem; color: #222; }
+  h1 { font-size: 1.2rem; } h3 { margin-bottom: .2rem; }
+  .phase { display: inline-block; padding: .15rem .6rem; border-radius: .3rem; background: #eef; font-weight: 600; }
+  .row { margin: .4rem 0; }
+  button { margin-right: .4rem; padding: .25rem .6rem; }
+  input { width: 26rem; }
+  .log { border: 1px solid #ccc; padding: .6rem; max-height: 20rem; overflow: auto; font-family: ui-monospace, monospace; font-size: .82rem; }
+  .caucus { background: #fff7df; } .sys { color: #777; } .offer { color: #067; font-weight: 600; }
+  table { border-collapse: collapse; margin-top: .3rem; }
+  td { border: 1px solid #ccc; padding: .1rem .5rem; font-size: .78rem; }
+  #err { color: #b00020; min-height: 1.3em; }
+  .trace { font-size: .72rem; color: #555; max-height: 8rem; overflow: auto; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h1>Turn model — clickable mirror <span class="phase" id="phase">setup</span></h1>
+<p>Deterministic beat loop per ticket 02: audience = addressing · model-decided volunteering, one round-trip cap · sequential seat-order calls · transactional failures · structured offers · seven phases. A and B are scripted mocks; you play Z.</p>
+
+<div class="row">
+  <input id="text" value="State your positions." size="40" />
+  <button onclick="sendTo(['A'])">→ A</button>
+  <button onclick="sendTo(['B'])">→ B</button>
+  <button onclick="sendTo(['A','B'])">→ A+B</button>
+</div>
+<div class="row">
+  <button onclick="openSession()" id="bOpen">Open session</button>
+  <button onclick="openCaucus('A')">Caucus with A</button>
+  <button onclick="openCaucus('B')">Caucus with B</button>
+  <button onclick="closeCaucus()">Close caucus</button>
+  <button onclick="endSession('agreement')">Declare agreement</button>
+  <button onclick="endSession('impasse')">Declare impasse</button>
+  <button onclick="enterReview()">Enter review</button>
+  <button onclick="reset()">Reset</button>
+</div>
+<div id="err"></div>
+
+<h3>Event log (Z's projection)</h3>
+<div class="log" id="log"></div>
+
+<h3>Behavioral state</h3>
+<div id="dims"></div>
+
+<h3>Driver trace</h3>
+<pre class="trace" id="trace"></pre>
+
+<script>
+"use strict";
+// ---- condensed mirror of engine.ts primitives --------------------------------
+const SEAT_IDS = ["A", "B", "Z"];
+const clamp = (n) => Math.min(100, Math.max(0, n));
+const DIMS = ["anger", "trustMediator", "trustOtherParty", "willingnessToSettle", "rigidity", "fatigue"];
+const initialState = (over) => Object.assign(
+  { anger: 20, trustMediator: 50, trustOtherParty: 30, willingnessToSettle: 50, rigidity: 60, fatigue: 0, position: null },
+  over || {}
+);
+const jointAudience = () => SEAT_IDS.slice();
+const caucusAudience = (p) => ["Z", p];
+const projectFor = (viewer) => S.session.log.filter((e) => e.audience.includes(viewer));
+
+function appendEvent(ev) {
+  const s = S.session;
+  if (ev.sender !== "SYSTEM" && !ev.audience.includes(ev.sender)) {
+    throw new Error("sender must be in own audience");
+  }
+  if (s.caucusWith && !caucusAudience(s.caucusWith).includes(ev.sender)) {
+    throw new Error(ev.sender + " cannot act during the caucus with " + s.caucusWith);
+  }
+  const e = { id: "e" + String(s.log.length + 1).padStart(4, "0"), seq: s.log.length + 1, ...ev };
+  return { ...s, log: [...s.log, e] };
+}
+
+function applyReaction(n, r) {
+  const next = Object.assign({}, n);
+  for (const d of DIMS) {
+    const v = r[d + "Delta"];
+    if (typeof v === "number") next[d] = clamp(next[d] + v);
+  }
+  return next;
+}
+</script>
+
+<script>
+"use strict";
+// ---- state + scripted mocks (Phase-0 stand-in for ModelRuntime) ---------------
+// One scenario rule: B walks out if willingnessToSettle drops below 10.
+const RULES = [{ partyId: "B", dimension: "willingnessToSettle", op: "<", threshold: 10, effect: "walkout" }];
+
+const SCRIPT_A = [
+  { utterance: "Our position is $120,000.", reaction: { angerDelta: -5 } },
+  { utterance: "Given B's posture, we want this settled fast.", reaction: { trustOtherPartyDelta: -5 } },
+  { utterance: "Fine — $95,000, lump sum.", reaction: { willingnessToSettleDelta: 10 },
+    offer: { amount: 95000, terms: "lump sum" } },
+  { utterance: "Off the record: we need this done by June.", reaction: {} },
+  { utterance: "We can live with $80k if B drops the press demand.", reaction: { rigidityDelta: -10 } },
+];
+const SCRIPT_B = [
+  { utterance: "", reaction: { trustMediatorDelta: 2 } },
+  { utterance: "That number is high. We are at $60,000.",
+    reaction: { angerDelta: 10, willingnessToSettleDelta: -12 } },
+  { utterance: "With the June deadline dropped, we can move.", reaction: { willingnessToSettleDelta: 25, trustMediatorDelta: 5 } },
+  { utterance: "", reaction: {} },
+];
+const cursors = { A: 0, B: 0 };
+
+function mockRespond(seat) {
+  const script = seat === "A" ? SCRIPT_A : SCRIPT_B;
+  const step = script[cursors[seat]] || { utterance: "", reaction: {} };
+  cursors[seat] = cursors[seat] + 1; // exhausted scripts decline
+  return step;
+}
+
+const S = { session: null, phase: "setup", trace: [] };
+function trace(line) { S.trace.push(line); }
+
+function reset() {
+  S.session = {
+    caucusWith: null,
+    log: [],
+    runtimes: {
+      A: { negotiation: initialState({}) },
+      B: { negotiation: initialState({ anger: 40, willingnessToSettle: 40 }) },
+    },
+  };
+  S.phase = "setup";
+  S.trace = [];
+  cursors.A = 0; cursors.B = 0;
+  S.session = appendEvent({
+    sender: "SYSTEM", audience: jointAudience(),
+    kind: "session_event", payload: { type: "ready" },
+  });
+  render();
+}
+
+function setNegotiation(seatId, negotiation) {
+  S.session = {
+    ...S.session,
+    runtimes: { ...S.session.runtimes, [seatId]: { ...S.session.runtimes[seatId], negotiation } },
+  };
+}
+
+function systemWalkout(partyId) {
+  S.session = appendEvent({
+    sender: "SYSTEM", audience: jointAudience(),
+    kind: "session_event", payload: { type: "walkout", party: partyId },
+  });
+  S.phase = "walkout";
+}
+
+// The beat loop: sequential seat order, one round-trip volunteering cap,
+// threshold rules after each Reaction, transactional per call.
+async function runBeats(addressed) {
+  const frontier = addressed.map((p) => ({ partyId: p, mandatory: false }));
+  const volunteered = new Set();
+  const forcedFired = new Set();
+  while (frontier.length) {
+    if (S.phase !== "joint_session" && S.phase !== "caucus") return;
+    const c = frontier.shift();
+    const resp = mockRespond(c.partyId);
+    const audience = S.phase === "caucus" ? caucusAudience(S.session.caucusWith) : jointAudience();
+    if (resp.offer) {
+      S.session = appendEvent({ sender: c.partyId, audience, kind: "offer", payload: resp.offer });
+      const n = S.session.runtimes[c.partyId].negotiation;
+      setNegotiation(c.partyId, { ...n, position: resp.offer.amount }); // decision 9: app-side
+      trace(c.partyId + " made an offer " + JSON.stringify(resp.offer));
+    }
+    const spoke = resp.utterance.trim().length > 0;
+    if (spoke) {
+      S.session = appendEvent({
+        sender: c.partyId, audience, kind: "message", payload: { text: resp.utterance },
+      });
+    } else if (c.mandatory) {
+      throw new Error(c.partyId + " declined a threshold-forced response (loud; nothing appended)");
+    }
+    const rt = S.session.runtimes[c.partyId];
+    setNegotiation(c.partyId, applyReaction(rt.negotiation, resp.reaction));
+    for (const rule of RULES) {
+      if (rule.partyId !== c.partyId) continue;
+      const v = S.session.runtimes[c.partyId].negotiation[rule.dimension];
+      if (!(rule.op === "<" ? v < rule.threshold : v > rule.threshold)) continue;
+      const key = rule.partyId + ":" + rule.dimension + ":" + rule.effect;
+      if (forcedFired.has(key)) continue;
+      forcedFired.add(key);
+      if (rule.effect === "walkout") { systemWalkout(rule.partyId); return; }
+      frontier.unshift({ partyId: rule.partyId, mandatory: true }); // priority over volunteering
+    }
+    if (spoke && S.phase === "joint_session") { // decisions 2 + 5
+      for (const other of ["A", "B"]) {
+        if (other === c.partyId || volunteered.has(other)) continue;
+        volunteered.add(other);
+        frontier.push({ partyId: other, mandatory: false });
+      }
+    }
+  }
+}
+</script>
+
+<script>
+"use strict";
+// ---- mediator actions (the UI's action surface) -------------------------------
+function showError(e) {
+  document.getElementById("err").textContent = e && e.message ? e.message : String(e || "");
+}
+function requirePhase(p, action) {
+  if (S.phase !== p) throw new Error(action + " requires phase " + p + ", got " + S.phase);
+}
+function requirePhaseIn(phases, action) {
+  if (phases.indexOf(S.phase) === -1) {
+    throw new Error(action + " requires one of [" + phases.join(", ") + "], got " + S.phase);
+  }
+}
+function canSpeakNow(seatId) {
+  if (S.phase === "caucus") return caucusAudience(S.session.caucusWith).indexOf(seatId) !== -1;
+  return true;
+}
+
+function openSession() {
+  showError("");
+  try {
+    requirePhase("setup", "openSession");
+    S.session = appendEvent({
+      sender: "SYSTEM", audience: jointAudience(),
+      kind: "session_event", payload: { type: "session_opened" },
+    });
+    S.phase = "joint_session";
+    render();
+  } catch (e) { showError(e); }
+}
+
+async function sendTo(aud) {
+  showError("");
+  try {
+    requirePhaseIn(["joint_session", "caucus"], "send");
+    if (S.phase === "caucus" && aud.some((p) => caucusAudience(S.session.caucusWith).indexOf(p) === -1)) {
+      throw new Error("cannot address " + aud.join(",") + " during a private caucus");
+    }
+    const full = Array.from(new Set(aud.concat("Z")));
+    S.session = appendEvent({
+      sender: "Z", audience: full, kind: "message",
+      payload: { text: document.getElementById("text").value },
+    });
+    await runBeats(aud.filter(canSpeakNow));
+    render();
+  } catch (e) { showError(e); render(); }
+}
+
+function openCaucus(partyId) {
+  showError("");
+  try {
+    requirePhase("joint_session", "openCaucus");
+    S.session = appendEvent({
+      sender: "Z", audience: jointAudience(),
+      kind: "session_event", payload: { type: "caucus_begin", party: partyId },
+    });
+    S.session = Object.assign({}, S.session, { caucusWith: partyId });
+    S.phase = "caucus";
+    render();
+  } catch (e) { showError(e); }
+}
+
+function closeCaucus() {
+  showError("");
+  try {
+    if (S.phase !== "caucus" || !S.session.caucusWith) throw new Error("no active caucus");
+    S.session = appendEvent({
+      sender: "Z", audience: jointAudience(),
+      kind: "session_event", payload: { type: "caucus_end", party: S.session.caucusWith },
+    });
+    S.session = Object.assign({}, S.session, { caucusWith: null });
+    S.phase = "joint_session";
+    render();
+  } catch (e) { showError(e); }
+}
+
+function endSession(phase) {
+  showError("");
+  try {
+    requirePhase("joint_session", "declare");
+    S.session = appendEvent({
+      sender: "Z", audience: jointAudience(),
+      kind: "session_event", payload: { type: "declared_" + phase },
+    });
+    S.phase = phase;
+    render();
+  } catch (e) { showError(e); }
+}
+
+function enterReview() {
+  showError("");
+  try {
+    requirePhaseIn(["agreement", "impasse", "walkout"], "enterReview");
+    S.phase = "review";
+    render();
+  } catch (e) { showError(e); }
+}
+</script>
+
+<script>
+"use strict";
+// ---- render -------------------------------------------------------------------
+function esc(t) {
+  return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+}
+function render() {
+  document.getElementById("phase").textContent = S.phase + (S.session && S.session.caucusWith ? " (with " + S.session.caucusWith + ")" : "");
+  const logEl = document.getElementById("log");
+  logEl.innerHTML = projectFor("Z").map((e) => {
+    const caucus = e.kind === "message" && e.sender !== "Z" && S.session.caucusWith &&
+      caucusAudience(S.session.caucusWith).indexOf(e.sender) !== -1;
+    const cls = e.kind === "session_event" ? "sys" : e.kind === "offer" ? "offer" : caucus ? "caucus" : "";
+    const detail = e.kind === "session_event" ? JSON.stringify(e.payload)
+      : e.kind === "offer" ? JSON.stringify(e.payload)
+      : e.payload && e.payload.text ? e.payload.text : "";
+    return '<div class="' + cls + '">' + e.id + " " + esc(e.sender) + " → [" +
+      e.audience.join(",") + "] " + e.kind + ": " + esc(detail) + "</div>";
+  }).join("");
+  const rows = ["A", "B"].map((p) => {
+    if (!S.session.runtimes[p]) return "";
+    const n = S.session.runtimes[p].negotiation;
+    const cells = DIMS.map((d) => "<td>" + d + ": " + n[d] + "</td>").join("");
+    return "<tr><td><b>" + p + "</b></td>" + cells + "<td>position: " + (n.position === null ? "—" : n.position) + "</td></tr>";
+  }).join("");
+  document.getElementById("dims").innerHTML = "<table>" + rows + "</table>";
+  document.getElementById("trace").textContent = S.trace.join("\n") || "(no beats yet)";
+}
+reset();
+</script>
+</body>
+</html>

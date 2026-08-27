@@ -20,9 +20,9 @@ A buildable MVP spec for a **mediator-training simulator**: a human practices as
 
 - [MVP mode is mediator training](./issues/00-mode.md): human plays Z; A and B are agents; war-gaming is a later mode. (charting session, 2026-08-27)
 - [Participant seats toggle human/agent](./issues/01-participant-interfaces.md): interface design is the gating decision for everything else. (charting session)
-- [Core participant & runtime primitives validated](./issues/01-participant-interfaces.md): config-driven seats discriminated human|agent (ModelConfig only on agent seats); opaque seat ids with generic-typed audiences; single append-only event log with per-event audience → projections; reaction reducer on mutable dimensions only (no delta channel to settlement economics); thin `ModelRuntime` boundary. Prototype source: branch `prototype/participant-interfaces`. UI will be Next.js; engine stays pure TS. (2026-08-27)
+- [Core participant & runtime primitives validated](./issues/01-participant-interfaces.md): config-driven seats discriminated human|agent (ModelConfig only on agent seats); opaque seat ids with generic-typed audiences; single append-only event log with per-event audience → projections; reaction reducer on mutable dimensions only (no delta channel to settlement economics); thin `ModelRuntime` boundary. Prototype merged to main via PR #1 (`prototypes/participant-interfaces/`); UI will be Next.js; engine stays pure TS. (2026-08-27)
 - [Browser-direct provider transport works for all three providers](./issues/04-provider-transport.md): OpenAI needs nothing special; Anthropic requires `anthropic-dangerous-direct-browser-access: true`; Ollama needs `OLLAMA_ORIGINS` — no proxy shim needed; BYOK XSS mitigated via scoped spend-capped keys + memory-only default `KeyStore`. Layered with the OUTLINE decision: use Vercel AI SDK's provider abstraction beneath our own `ModelRuntime` interface rather than hand-rolling adapters.
-- Turn model is app-driven: parties speak when addressed or on offers/state changes; the mediator directs. (charting session, Round 2 Q2)
+- [Turn model is a deterministic app-driven beat loop](./issues/02-turn-orchestration.md): triggers derive purely from event structure (audience = addressing); model-decided volunteering with one round-trip cap; sequential calls in seat order; transactional failure handling; offers as structured events; seven collapsed phases with human-issued transitions (XState transition events are the seam for a future LLM proposer). (2026-08-27)
 - **No evaluator at MVP** (charting session, revised): the human reviews the transcript. The evaluator LLM entity, its output contract, and the ABA rubric are end-product scope — see Out of scope. Tickets [05](./issues/05-evaluator-contract.md) and [03](./issues/03-aba-rubric-research.md) closed accordingly.
 - Providers at MVP: OpenAI + Anthropic + Ollama, browser-direct with per-seat model config; XSS/key-handling risk explicitly accepted and to be engineered around. (charting session, Round 3 Q3 / Round 2 Q5)
 - Scenarios are hand-written JSON fixtures with a Zod schema; PLAN §15's three scenarios (commercial-basic, employment-intermediate, commercial-advanced) ship at MVP. (charting session, Round 2 Q6 / Round 3 Q4)
@@ -32,12 +32,12 @@ A buildable MVP spec for a **mediator-training simulator**: a human practices as
 
 <!-- fog: suspected questions not yet sharp enough to ticket -->
 
-- Prompt compiler structure: what the compiled prompt for each seat contains and how it's versioned — depends on interfaces (01) and turn model (02).
-- Reaction reducer design: how `Reaction` metadata maps to deterministic changes in `NegotiationState` — depends on scenario schema (06) and interfaces (01).
-- XState session machine shape: which states/guards beyond PLAN §4 survive contact with the turn model — depends on 02.
-- Audit record schema per model call (PLAN §10) — depends on 01.
-- Phase 0 vertical-slice test strategy: which automated tests prove caucus visibility + reducer determinism — depends on 01, 02.
-- Session UX flow (the actual screens a mediator sees during a run, including transcript review at session end) — hangs on 02.
+- Prompt compiler structure: what the compiled prompt for each seat contains and how it's versioned — interfaces (01) and turn model (02) are settled; unblocked.
+- Reaction reducer design: how `Reaction` metadata maps to deterministic changes in `NegotiationState` — depends on scenario schema (06). Plus an explicit revisit: OUTLINE's signal-space `Reaction` (`perceivedRespect`/`perceivedPressure`/`topicTriggers`) vs MVP state-unit deltas — settle during prompt-compiler work.
+- XState session machine shape: seven phases decided in [02](./issues/02-turn-orchestration.md); guards/actors wiring + engine lift into the app ticketed as [07](./issues/07-xstate-session-actor.md).
+- Audit record schema per model call (PLAN §10) — depends on 01; `InvocationRecord` sketched in the prototype, retry/attempt semantics decided in [02](./issues/02-turn-orchestration.md).
+- Phase 0 vertical-slice test strategy: which automated tests prove caucus visibility + reducer determinism — depends on 01, 02; both settled, unblocked.
+- Session UX flow (the actual screens a mediator sees during a run, including transcript review at session end) — unblocked by 02: the driver's mediator actions (send/address, open/close caucus, declare phase) are the UI's action surface.
 
 ## Out of scope
 
