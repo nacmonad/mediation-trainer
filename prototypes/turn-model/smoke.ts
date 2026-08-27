@@ -8,14 +8,14 @@ import {
   projectFor,
   type AgentSeat,
   type SeatConfig,
-} from "../participant-interfaces/engine.ts";
+} from "../../app/src/engine/domain.ts";
 import {
   TurnDriver,
   TurnError,
   type DriverRuntime,
   type AgentResponse,
   type ScenarioRule,
-} from "./driver.ts";
+} from "../../app/src/engine/driver.ts";
 
 type Id = "A" | "B" | "Z";
 

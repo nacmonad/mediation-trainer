@@ -1,7 +1,7 @@
 # 07 — XState session actor & engine lift into app/
 
 Type: implementation
-Status: open
+Status: resolved
 Blocked by: 01 (resolved), 02 (resolved); assumes `prototypes/turn-model/` merged to main
 
 ## Question
@@ -16,3 +16,11 @@ Lift the validated engine into the Next.js app and wrap the beat loop in an XSta
 - **Next 16 caveat**: `app/AGENTS.md` warns this Next version has breaking changes; read `app/node_modules/next/dist/docs/` before writing app-side code.
 
 Working decisions to respect: XState v5 session actor + child actors (party runtimes are NOT FSMs); Vercel AI SDK beneath the thin `ModelRuntime` (post-wiring ticket); Zod for the scenario schema (06) and for validating agent responses (`utterance`/`reaction`/optional `offer`).
+
+## Answer
+
+**Resolved (2026-08-27).** The validated participant primitives and deterministic turn driver now live in `app/src/engine/`. An XState v5 `SessionActor` owns the seven Session phases and exposes one Zod-validated transition-event seam for both mediator UI actions and a future confirmed LLM proposer. The plain-TypeScript driver remains responsible for the event log, projections, behavioral state, caucus participant identity, and sequential beat loop; when wrapped, it reads the XState-owned phase rather than maintaining a second source of truth. `PARTY_WALKS_OUT` remains system-only.
+
+Agent responses are asynchronously validated with Zod, and successful audit attempts now capture the reducer-derived `stateAfter`. A scripted `DriverRuntime` and clickable Next.js vertical slice exercise joint Session messages, caucuses, terminal declarations, and review without provider keys. Focused actor tests cover the transition seam, caucus invariant, system walkout, and proposer-schema boundary.
+
+Verification: participant-interface smoke test passed; turn-model smoke test passed all 26 checks; 3 focused session-actor tests passed; app lint passed; Next.js 16 production build and TypeScript checks passed.
