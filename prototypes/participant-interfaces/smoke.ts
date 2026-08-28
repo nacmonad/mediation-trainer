@@ -16,7 +16,7 @@ import {
   type SeatConfig,
   type NegotiationState,
   type Reaction,
-} from "./engine.ts";
+} from "../../app/src/engine/domain.ts";
 
 const A = "A", B = "B", Z = "Z";
 const mvpSeats: SeatConfig[] = [

@@ -1,5 +1,5 @@
 /**
- * PROTOTYPE — ticket 02: turn orchestration & session driver.
+ * Session turn orchestration lifted from ticket 02's validated prototype.
  * Deterministic, app-driven beat loop over the ticket-01 engine primitives
  * (`../participant-interfaces/engine.ts`). Pure, DOM-free, dependency-free.
  * Mock/scripted runtimes plug in here; the real Vercel-AI-SDK-backed runtime
@@ -32,7 +32,8 @@ import {
   mediatorId,
   caucusAudience,
   jointAudience,
-} from "../participant-interfaces/engine.ts";
+} from "./domain.ts";
+import { z } from "zod";
 
 // ---------------------------------------------------------------------------
 // Phases (decision 10: seven collapsed phases)
@@ -110,22 +111,20 @@ function isTransportError(e: unknown): boolean {
   return e instanceof TurnError && e.kind === "transport";
 }
 
-function validateReaction(reaction: Reaction): void {
-  if (typeof reaction !== "object" || reaction === null) {
-    throw new TurnError("structural", "model response missing Reaction");
-  }
-  for (const [k, v] of Object.entries(reaction)) {
-    if (typeof v !== "number" || !Number.isFinite(v)) {
-      throw new TurnError("structural", `Reaction.${k} must be a finite number`);
-    }
-  }
-}
+const reactionSchema = z.object({
+  angerDelta: z.number().finite().optional(),
+  trustMediatorDelta: z.number().finite().optional(),
+  trustOtherPartyDelta: z.number().finite().optional(),
+  willingnessToSettleDelta: z.number().finite().optional(),
+  rigidityDelta: z.number().finite().optional(),
+  fatigueDelta: z.number().finite().optional(),
+});
 
-function validateOffer(offer: Offer): void {
-  if (typeof offer.amount !== "number" || !Number.isFinite(offer.amount) || offer.amount < 0) {
-    throw new TurnError("structural", "offer.amount must be a non-negative finite number");
-  }
-}
+const agentResponseSchema = z.object({
+  utterance: z.string(),
+  reaction: reactionSchema,
+  offer: z.object({ amount: z.number().finite().nonnegative(), terms: z.string().optional() }).optional(),
+});
 
 /** Audit: every model-call attempt, including failed ones (decision 8). */
 export interface InvocationAttempt<T extends string> {
@@ -154,7 +153,9 @@ interface Consideration<T extends string> {
 
 export class TurnDriver<T extends string> {
   session: Session<T>;
-  phase: Phase = "setup";
+  private fallbackPhase: Phase = "setup";
+  private phaseOwner?: () => Phase;
+  private pendingWalkout: T | null = null;
   /** Human-readable beat trace (the HTML mirror renders this). */
   readonly trace: string[] = [];
   /** Every model-call attempt, success or failure. */
@@ -176,6 +177,21 @@ export class TurnDriver<T extends string> {
     this.promptVersion = promptVersion;
   }
 
+  /** XState installs itself as phase owner; fallback preserves the prototype smoke harness. */
+  attachPhaseOwner(read: () => Phase): void {
+    this.phaseOwner = read;
+  }
+
+  get phase(): Phase {
+    return this.phaseOwner?.() ?? this.fallbackPhase;
+  }
+
+  consumeSystemWalkout(): T | null {
+    const partyId = this.pendingWalkout;
+    this.pendingWalkout = null;
+    return partyId;
+  }
+
   // -- mediator actions (this is the UI's action surface) ------------------
 
   /** setup → joint_session. Appends a joint-visible opening session_event. */
@@ -187,7 +203,7 @@ export class TurnDriver<T extends string> {
       kind: "session_event",
       payload: { type: "session_opened" },
     });
-    this.phase = "joint_session";
+    this.fallbackPhase = "joint_session";
     this.trace.push("phase → joint_session");
     return this;
   }
@@ -222,7 +238,7 @@ export class TurnDriver<T extends string> {
   /** Decision 6: explicit open; the bookend is joint-visible, content gated. */
   openCaucus(partyId: T): this {
     this.requirePhase("joint_session", "openCaucus");
-    const caucus = caucusAudience(this.session, partyId); // validates the party seat
+    caucusAudience(this.session, partyId); // validates the party seat
     this.session = appendEvent(this.session, {
       sender: this.requireMediator(),
       audience: jointAudience(this.session),
@@ -230,7 +246,7 @@ export class TurnDriver<T extends string> {
       payload: { type: "caucus_begin", party: partyId },
     });
     this.session = { ...this.session, caucusWith: partyId };
-    this.phase = "caucus";
+    this.fallbackPhase = "caucus";
     this.trace.push(`phase → caucus (with ${partyId})`);
     return this;
   }
@@ -247,7 +263,7 @@ export class TurnDriver<T extends string> {
       payload: { type: "caucus_end", party: partyId },
     });
     this.session = { ...this.session, caucusWith: null };
-    this.phase = "joint_session";
+    this.fallbackPhase = "joint_session";
     this.trace.push("phase → joint_session");
     return this;
   }
@@ -265,7 +281,7 @@ export class TurnDriver<T extends string> {
 
   enterReview(): this {
     this.requirePhaseIn(["agreement", "impasse", "walkout"], "enterReview");
-    this.phase = "review";
+    this.fallbackPhase = "review";
     this.trace.push("phase → review");
     return this;
   }
@@ -407,8 +423,11 @@ export class TurnDriver<T extends string> {
         `model call failed for ${c.partyId} after ${attempts} attempt(s): ${String(lastError)}`
       );
     }
-    validateReaction(response.reaction);
-    if (response.offer) validateOffer(response.offer);
+    const parsed = agentResponseSchema.safeParse(response);
+    if (!parsed.success) {
+      throw new TurnError("structural", `invalid agent response: ${parsed.error.message}`);
+    }
+    response = parsed.data;
     if (attempts > 1) {
       this.trace.push(`${c.partyId}: transport retry succeeded on attempt ${attempts}`);
     }
@@ -424,7 +443,7 @@ export class TurnDriver<T extends string> {
       promptVersion: this.promptVersion,
       visibleEventIds,
       stateBefore,
-      stateAfter: this.session.runtimes[c.partyId]!.negotiation, // reducer applied by caller next
+      stateAfter: applyPartyReaction(stateBefore, response.reaction),
       response,
     });
     return response;
@@ -439,7 +458,8 @@ export class TurnDriver<T extends string> {
       kind: "session_event",
       payload: { type: "walkout", party: partyId },
     });
-    this.phase = "walkout";
+    this.fallbackPhase = "walkout";
+    this.pendingWalkout = partyId;
     this.trace.push(`phase → walkout (${partyId}) — system-forced by scenario rule`);
   }
 
@@ -450,7 +470,7 @@ export class TurnDriver<T extends string> {
       kind: "session_event",
       payload: { type: `declared_${phase}` },
     });
-    this.phase = phase;
+    this.fallbackPhase = phase;
     this.trace.push(`phase → ${phase}`);
     return this;
   }

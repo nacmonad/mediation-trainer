@@ -1,6 +1,5 @@
 /**
- * PROTOTYPE — ticket 01: core participant & runtime primitives.
- * Throwaway draft on branch `prototype/participant-interfaces`.
+ * Core participant and runtime primitives, lifted from ticket 01's validated prototype.
  * Pure, DOM-free, dependency-free. The validated version lifts into the Next.js
  * app's engine layer. Nothing here assumes which seats are human or agent.
  */
