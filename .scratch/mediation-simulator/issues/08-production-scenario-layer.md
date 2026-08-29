@@ -1,7 +1,7 @@
 # 08 — Production Scenario layer
 
 Type: implementation
-Status: open
+Status: resolved
 Blocked by: 06 (resolved), 07 (resolved)
 
 ## Question
@@ -21,3 +21,11 @@ Preserve the established layering: XState owns Session phase; plain TypeScript o
 - participant projection returns only Case resources and Events permitted by exact participant Audience.
 - disclosure and Offer decisions are returned as data through public functions, without hidden mutation.
 - applying a constrained Reaction returns the next Negotiation state and ordered rule effects, with Walkout precedence and terminality.
+
+## Answer
+
+Resolved 2026-08-29. `app/src/engine/scenario.ts` is the production Scenario boundary: strict Zod parsing for schema version 1, exact-Audience participant projection, pure disclosure and Offer decisions, and deterministic Scenario-tuned Reaction/rule application. Walkout outranks force-speak, is terminal across later Scenario actions, and XState remains the sole owner of Session phase.
+
+The three authored JSON fixtures cover the validated supplier-invoice, employment-separation, and software-implementation exercises. Focused tests prove strict parsing, visibility, Caucus-gated disclosure, authority versus Reservation value, reducer caps, edge-triggered/phase-scoped rules, Walkout precedence, and terminality.
+
+Verification passed: participant-interface smoke test; turn-model smoke test (26 checks); all 9 engine/session tests; ESLint; TypeScript and Next.js 16 production build.
