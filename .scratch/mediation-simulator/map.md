@@ -15,6 +15,7 @@ A buildable MVP spec for a **mediator-training simulator**: a human practices as
 - Per-seat participant model: every seat (A, B, Z, evaluator) is configurable as `human | agent`; MVP configuration is A+B agents, Z human. This keeps war-gaming mode reachable later without redesign.
 - Library selections (from OUTLINE.md, restated): **XState v5** owns session orchestration as a session actor with child actors; behavioral/negotiation state stays in plain TypeScript domain objects (never FSM states). **Vercel AI SDK** sits underneath the thin `ModelRuntime` interface (replaceable, never leaked into domain types); `@statelyai/agent` excluded as alpha. **Zod** for schemas/structured output. No LangChain/LangGraph.
 - Issue tracker: local markdown (`.scratch/mediation-simulator/`).
+- Current production lift: [08 — Production Scenario layer](./issues/08-production-scenario-layer.md), implementing the validated Ticket 06 contract in `app/`.
 
 ## Decisions so far
 
