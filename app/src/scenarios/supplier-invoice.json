@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1, "scenarioId": "supplier-invoice", "scenarioVersion": 1,
+  "slug": "supplier-invoice", "title": "Supplier invoice dispute", "difficulty": "basic", "tags": ["commercial"], "currency": "USD",
+  "resources": [{ "id": "invoice", "title": "Invoice", "body": "A disputed component invoice.", "audience": ["A", "B", "Z"] }],
+  "sharedFacts": ["The parties dispute an unpaid invoice."], "groundTruth": ["The feasible zone is $105,000–$125,000."],
+  "parties": {
+    "A": { "bargainingRole": "claimant", "persona": { "role": "supplier", "goals": ["recover payment"], "speakingStyle": "direct", "behavioralInstructions": ["stay commercial"], "emotionalTriggers": [], "permittedMisleadingClaims": [] }, "authorityLimit": 105000, "alternatives": { "batna": "Sue for payment.", "watna": "Lose the account and the claim." }, "privateFacts": ["cash-flow pressure"], "initialState": { "anger": 20, "trustMediator": 55, "trustOtherParty": 35, "willingnessToSettle": 60, "rigidity": 45, "fatigue": 5, "position": 160000, "reservationValue": 105000, "interests": ["cash flow", "relationship"], "walkoutStatus": "active" }, "reducer": { "sensitivity": { "anger": 100, "trustMediator": 100, "trustOtherParty": 100, "willingnessToSettle": 100, "rigidity": 100, "fatigue": 100 }, "caps": { "anger": 12, "trustMediator": 12, "trustOtherParty": 12, "willingnessToSettle": 12, "rigidity": 12, "fatigue": 12 } } },
+    "B": { "bargainingRole": "respondent", "persona": { "role": "manufacturer", "goals": ["resolve quality dispute"], "speakingStyle": "practical", "behavioralInstructions": ["test the invoice"], "emotionalTriggers": [], "permittedMisleadingClaims": [] }, "authorityLimit": 125000, "alternatives": { "batna": "Defend the claim.", "watna": "Pay judgment plus costs." }, "privateFacts": ["replacement costs were lower than claimed"], "initialState": { "anger": 18, "trustMediator": 55, "trustOtherParty": 35, "willingnessToSettle": 60, "rigidity": 45, "fatigue": 5, "position": 70000, "reservationValue": 125000, "interests": ["quality assurance", "relationship"], "walkoutStatus": "active" }, "reducer": { "sensitivity": { "anger": 100, "trustMediator": 100, "trustOtherParty": 100, "willingnessToSettle": 100, "rigidity": 100, "fatigue": 100 }, "caps": { "anger": 12, "trustMediator": 12, "trustOtherParty": 12, "willingnessToSettle": 12, "rigidity": 12, "fatigue": 12 } } }
+  },
+  "disclosureRules": [], "rules": [],
+  "targetRange": { "minimum": 112000, "maximum": 120000, "qualitativeTerms": [] },
+  "evaluatorBrief": { "groundTruth": ["Reservation values overlap."], "teachingPrompts": ["Did the Mediator identify the feasible zone?"] }
+}
