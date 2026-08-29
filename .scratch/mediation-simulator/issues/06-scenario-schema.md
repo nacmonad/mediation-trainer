@@ -1,7 +1,7 @@
 # 06 — Scenario schema & MVP fixtures
 
 Type: prototype
-Status: prototype ready — awaiting live validation
+Status: resolved
 Blocked by: 01, 02
 
 ## Question
@@ -63,3 +63,19 @@ Prototype primary source: branch `prototype/scenario-schema`, file `prototypes/s
 ### Prototype proof obligations
 
 Exercise exact Event-audience projection, gated disclosure, authority versus Reservation value, reducer sensitivity and caps, threshold precedence, once-only/repeatable firing, and terminal Walkout before lifting the model into production.
+
+## Answer
+
+Validated live by Scott on 2026-08-29. The single-file prototype on branch `prototype/scenario-schema` demonstrated that one strict declarative Scenario contract can represent all three MVP exercises and the awkward runtime cases without embedding executable formulas in authored JSON.
+
+The validated semantics are:
+
+- exact participant Audiences determine Case-resource access and Event-log Projections;
+- disclosure rules grant phase- and prerequisite-scoped permission, while an explicit Party action creates the disclosure Event;
+- bargaining roles define Reservation-value direction, and authority remains a separate acceptance constraint;
+- the Party LLM interprets authored emotional triggers, but one deterministic reducer scales, caps, and clamps constrained Reaction deltas;
+- rules evaluate after Reaction, fire on threshold edges, and are once-only unless explicitly repeatable;
+- Walkout outranks force-speak when both become eligible and is terminal for the Session; and
+- the post-Session human-evaluator packet is descriptive, hidden during practice, and exists to improve Mediator performance.
+
+The three fixture briefs and economics under `## Confirmed design` are final. The prototype HTML remains primary-source evidence on its throwaway branch and must not ship as production code.
