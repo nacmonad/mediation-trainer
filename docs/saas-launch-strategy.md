@@ -147,7 +147,7 @@ Do not claim that hosted inference is end-to-end encrypted merely because a prov
 
 ### Day 1: commercial skeleton
 
-- Confirm `AGPL-3.0-only` or choose another license
+- Add the approved `AGPL-3.0-only` license to the repository
 - Lock the founding-beta offer and usage allowance
 - Add authentication, account records, and production environments
 - Publish terms, privacy boundary, and beta disclaimer drafts
@@ -214,7 +214,7 @@ The confidential-document release needs its own threat model. Local redaction re
 
 ## Decisions required
 
-- Approve `AGPL-3.0-only`, choose Apache-2.0, or obtain counsel on a dual-license structure
+- Decide whether future outside contributions need a contributor agreement for commercial relicensing
 - Approve the `$49/month`, 20-Session founding-beta hypothesis
 - Choose the initial managed inference provider and default Party model
 - Choose the hosting, database, authentication, and billing vendors
