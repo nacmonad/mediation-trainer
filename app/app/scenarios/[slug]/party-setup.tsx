@@ -6,35 +6,40 @@ import type { ModelConfig } from "@/src/engine/domain";
 import { registerSessionCredentials } from "@/src/model-credentials";
 import { saveSessionSetup } from "@/src/session-storage";
 
-const providers: readonly { value: ModelConfig["provider"]; label: string }[] = [
-  { value: "openai", label: "OpenAI" },
-  { value: "venice", label: "Venice AI" },
-  { value: "ollama", label: "Ollama (OpenAI API)" },
-  { value: "openai-compatible", label: "Other OpenAI-compatible" },
+type ProviderPreset = { id: string; provider: ModelConfig["provider"]; label: string; endpoint: string; model: string };
+
+const presets: readonly ProviderPreset[] = [
+  { id: "openai", provider: "openai", label: "OpenAI", endpoint: "https://api.openai.com/v1/", model: "gpt-5.6-luna" },
+  { id: "anthropic", provider: "anthropic", label: "Anthropic", endpoint: "https://api.anthropic.com/v1/", model: "claude-sonnet-4-5" },
+  { id: "venice", provider: "venice", label: "Venice AI", endpoint: "https://api.venice.ai/api/v1", model: "" },
+  { id: "openai-compatible", provider: "openai-compatible", label: "Other OpenAI-compatible", endpoint: "https://openrouter.ai/api/v1/", model: "" },
+  // Ollama speaks the OpenAI chat-completions API, so it is a preset, not a provider.
+  { id: "ollama", provider: "openai-compatible", label: "Ollama (local)", endpoint: "http://localhost:11434/v1/", model: "llama3.2" },
 ];
 
-type SelectableProvider = "openai" | "venice" | "ollama" | "openai-compatible";
+function presetFor(config: ModelConfig): ProviderPreset {
+  return presets.find((item) => item.provider === config.provider && item.endpoint === config.endpoint)
+    ?? presets.find((item) => item.provider === config.provider)
+    ?? presets[0];
+}
 
-const defaults: Record<SelectableProvider, Pick<ModelConfig, "endpoint" | "model">> = {
-  openai: { endpoint: "https://api.openai.com/v1/", model: "gpt-5.6-luna" },
-  venice: { endpoint: "https://api.venice.ai/api/v1", model: "" },
-  ollama: { endpoint: "http://localhost:11434/v1/", model: "llama3.2" },
-  "openai-compatible": { endpoint: "https://openrouter.ai/api/v1/", model: "" },
-};
+function presetConfig(preset: ProviderPreset): ModelConfig {
+  return { provider: preset.provider, endpoint: preset.endpoint, model: preset.model };
+}
 
 function SeatFields({ party, config, apiKey, setApiKey, setConfig }: { party: "A" | "B"; config: ModelConfig; apiKey: string; setApiKey: (value: string) => void; setConfig: (value: ModelConfig) => void }) {
-  const providerLabel = providers.find((item) => item.value === config.provider)?.label ?? config.provider;
+  const providerLabel = presetFor(config).label;
   return (
     <fieldset className="border-t border-[var(--line)] pt-5">
       <legend className="text-lg font-semibold">Party {party}</legend>
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
         <label className="field">
           <span>Provider</span>
-          <select value={config.provider} onChange={(event) => {
-            const provider = event.target.value as SelectableProvider;
-            setConfig({ ...config, provider, ...defaults[provider] });
+          <select value={presetFor(config).id} onChange={(event) => {
+            const preset = presets.find((item) => item.id === event.target.value);
+            if (preset) setConfig({ ...config, provider: preset.provider, endpoint: preset.endpoint, model: preset.model });
           }}>
-            {providers.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+            {presets.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
           </select>
         </label>
         <label className="field">
@@ -43,9 +48,9 @@ function SeatFields({ party, config, apiKey, setApiKey, setConfig }: { party: "A
           <small id={`party-${party}-model-help`}>Use a model available from {providerLabel}.</small>
         </label>
         <label className="field sm:col-span-2 lg:col-span-1 xl:col-span-2">
-          <span>OpenAI-compatible base URL</span>
+          <span>{config.provider === "anthropic" ? "API base URL" : "OpenAI-compatible base URL"}</span>
           <input type="url" value={config.endpoint ?? ""} onChange={(event) => setConfig({ ...config, endpoint: event.target.value })} placeholder="https://provider.example/v1/" />
-          <small>The adapter appends <code>chat/completions</code>.</small>
+          <small>{config.provider === "anthropic" ? <>The adapter appends <code>messages</code>.</> : <>The adapter appends <code>chat/completions</code>.</>}</small>
         </label>
         <label className="field sm:col-span-2 lg:col-span-1 xl:col-span-2">
           <span>API key <small>(optional for local models)</small></span>
@@ -59,8 +64,8 @@ function SeatFields({ party, config, apiKey, setApiKey, setConfig }: { party: "A
 
 export function PartySetup({ scenarioSlug }: { scenarioSlug: string }) {
   const router = useRouter();
-  const [configA, setConfigA] = useState<ModelConfig>({ provider: "openai", ...defaults.openai });
-  const [configB, setConfigB] = useState<ModelConfig>({ provider: "openai", ...defaults.openai });
+  const [configA, setConfigA] = useState<ModelConfig>(presetConfig(presets[0]));
+  const [configB, setConfigB] = useState<ModelConfig>(presetConfig(presets[0]));
   const [apiKeyA, setApiKeyA] = useState("");
   const [apiKeyB, setApiKeyB] = useState("");
   const [error, setError] = useState("");
