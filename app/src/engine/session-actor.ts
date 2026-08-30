@@ -10,6 +10,7 @@ const seatId = z.string().min(1);
 export const sessionInputSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("OPEN_SESSION") }),
   z.object({ type: z.literal("SEND"), audience: z.array(seatId).min(1), text: z.string().min(1) }),
+  z.object({ type: z.literal("AGENT_MEDIATOR_TURN") }),
   z.object({ type: z.literal("RETRY_BEAT") }),
   z.object({ type: z.literal("OPEN_CAUCUS"), partyId: seatId }),
   z.object({ type: z.literal("CLOSE_CAUCUS") }),
@@ -46,6 +47,7 @@ const sessionMachine = setup({
     joint_session: {
       on: {
         SEND: {},
+        AGENT_MEDIATOR_TURN: {},
         RETRY_BEAT: {},
         OPEN_CAUCUS: "caucus",
         DECLARE_AGREEMENT: "agreement",
@@ -126,6 +128,14 @@ export class SessionActor<T extends string> {
         const walkoutPartyId = this.driver.consumeSystemWalkout();
         if (walkoutPartyId) {
           this.actor.send({ type: "PARTY_WALKS_OUT", partyId: walkoutPartyId });
+          return;
+        }
+        break;
+      case "AGENT_MEDIATOR_TURN":
+        await this.driver.agentMediatorStep();
+        const mediatorWalkoutPartyId = this.driver.consumeSystemWalkout();
+        if (mediatorWalkoutPartyId) {
+          this.actor.send({ type: "PARTY_WALKS_OUT", partyId: mediatorWalkoutPartyId });
           return;
         }
         break;

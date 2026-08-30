@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 
 const requestSchema = z.object({
   sessionId: z.string().uuid(),
-  credentials: z.object({ A: z.string(), B: z.string() }).strict(),
+  credentials: z.object({ A: z.string(), B: z.string(), Z: z.string().optional() }).strict(),
 }).strict();
 
 export async function POST(request: Request) {

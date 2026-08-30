@@ -1,13 +1,13 @@
-export type PartyId = "A" | "B";
+export type PartyId = "A" | "B" | "Z";
 
-type Entry = { credentials: Record<PartyId, string>; expiresAt: number };
+type Entry = { credentials: Partial<Record<PartyId, string>>; expiresAt: number };
 type VaultState = Map<string, Entry>;
 
 const globalVault = globalThis as typeof globalThis & { __mediationCredentialVault?: VaultState };
 const vault = globalVault.__mediationCredentialVault ??= new Map();
 const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000;
 
-export function registerCredentials(sessionId: string, credentials: Record<PartyId, string>): void {
+export function registerCredentials(sessionId: string, credentials: Partial<Record<PartyId, string>>): void {
   vault.set(sessionId, { credentials: { ...credentials }, expiresAt: Date.now() + EIGHT_HOURS_MS });
 }
 

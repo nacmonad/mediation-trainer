@@ -27,11 +27,11 @@ function presetConfig(preset: ProviderPreset): ModelConfig {
   return { provider: preset.provider, endpoint: preset.endpoint, model: preset.model };
 }
 
-function SeatFields({ party, config, apiKey, setApiKey, setConfig }: { party: "A" | "B"; config: ModelConfig; apiKey: string; setApiKey: (value: string) => void; setConfig: (value: ModelConfig) => void }) {
+function SeatFields({ title, seat, config, apiKey, setApiKey, setConfig }: { title: string; seat: "A" | "B" | "Z"; config: ModelConfig; apiKey: string; setApiKey: (value: string) => void; setConfig: (value: ModelConfig) => void }) {
   const providerLabel = presetFor(config).label;
   return (
     <fieldset className="border-t border-[var(--line)] pt-5">
-      <legend className="text-lg font-semibold">Party {party}</legend>
+      <legend className="text-lg font-semibold">{title}</legend>
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
         <label className="field">
           <span>Provider</span>
@@ -44,8 +44,8 @@ function SeatFields({ party, config, apiKey, setApiKey, setConfig }: { party: "A
         </label>
         <label className="field">
           <span>Model</span>
-          <input value={config.model} onChange={(event) => setConfig({ ...config, model: event.target.value })} aria-describedby={`party-${party}-model-help`} />
-          <small id={`party-${party}-model-help`}>Use a model available from {providerLabel}.</small>
+          <input value={config.model} onChange={(event) => setConfig({ ...config, model: event.target.value })} aria-describedby={`party-${seat}-model-help`} />
+          <small id={`party-${seat}-model-help`}>Use a model available from {providerLabel}.</small>
         </label>
         <label className="field sm:col-span-2 lg:col-span-1 xl:col-span-2">
           <span>{config.provider === "anthropic" ? "API base URL" : "OpenAI-compatible base URL"}</span>
@@ -68,6 +68,9 @@ export function PartySetup({ scenarioSlug }: { scenarioSlug: string }) {
   const [configB, setConfigB] = useState<ModelConfig>(presetConfig(presets[0]));
   const [apiKeyA, setApiKeyA] = useState("");
   const [apiKeyB, setApiKeyB] = useState("");
+  const [zAgent, setZAgent] = useState(false);
+  const [configZ, setConfigZ] = useState<ModelConfig>(presetConfig(presets[0]));
+  const [apiKeyZ, setApiKeyZ] = useState("");
   const [error, setError] = useState("");
   const [starting, setStarting] = useState(false);
   const valid = Boolean(configA.model.trim() && configA.endpoint?.trim() && configB.model.trim() && configB.endpoint?.trim());
@@ -77,8 +80,8 @@ export function PartySetup({ scenarioSlug }: { scenarioSlug: string }) {
     setStarting(true);
     const sessionId = crypto.randomUUID();
     try {
-      await registerSessionCredentials(sessionId, { A: apiKeyA, B: apiKeyB });
-      saveSessionSetup(sessionId, { A: configA, B: configB });
+      await registerSessionCredentials(sessionId, { A: apiKeyA, B: apiKeyB, ...(zAgent ? { Z: apiKeyZ } : {}) });
+      saveSessionSetup(sessionId, { A: configA, B: configB, ...(zAgent ? { Z: configZ } : {}) });
       router.push(`/sessions/${sessionId}?scenario=${scenarioSlug}`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -91,8 +94,19 @@ export function PartySetup({ scenarioSlug }: { scenarioSlug: string }) {
       <h2 className="text-2xl font-semibold tracking-tight">Configure Parties</h2>
       <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Provider credentials are sent to this server and held temporarily in process memory. They are not saved with the Session or included in exports.</p>
       <div className="mt-6 space-y-6">
-        <SeatFields party="A" config={configA} apiKey={apiKeyA} setApiKey={setApiKeyA} setConfig={setConfigA} />
-        <SeatFields party="B" config={configB} apiKey={apiKeyB} setApiKey={setApiKeyB} setConfig={setConfigB} />
+        <SeatFields title="Party A" seat="A" config={configA} apiKey={apiKeyA} setApiKey={setApiKeyA} setConfig={setConfigA} />
+        <SeatFields title="Party B" seat="B" config={configB} apiKey={apiKeyB} setApiKey={setApiKeyB} setConfig={setConfigB} />
+        <fieldset className="border-t border-[var(--line)] pt-5">
+          <legend className="text-lg font-semibold">Mediator (Party Z)</legend>
+          <label className="mt-4 flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={zAgent} onChange={(event) => setZAgent(event.target.checked)} />
+            Run the Mediator as an LLM agent (you observe and drive phase actions)
+          </label>
+          {zAgent && <div className="mt-4">
+            <SeatFields title="Mediator agent" seat="Z" config={configZ} apiKey={apiKeyZ} setApiKey={setApiKeyZ} setConfig={setConfigZ} />
+            <p className="mt-3 text-sm leading-6 text-[var(--muted)]">The agent Mediator only speaks — it cannot caucus, offer, or end the Session. Those stay human-issued.</p>
+          </div>}
+        </fieldset>
       </div>
       <button
         className="button-primary mt-7 w-full"

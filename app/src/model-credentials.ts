@@ -1,8 +1,8 @@
-export type PartyId = "A" | "B";
+export type PartyId = "A" | "B" | "Z";
 
 export async function registerSessionCredentials(
   sessionId: string,
-  values: Record<PartyId, string>,
+  values: { A: string; B: string; Z?: string },
 ): Promise<void> {
   const response = await fetch("/api/session-credentials", {
     method: "POST",

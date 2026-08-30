@@ -146,6 +146,59 @@ function renderTranscript(projection: readonly MediationEvent[]): string {
 }
 
 // ---------------------------------------------------------------------------
+// Mediator seat (ticket 13): the seat-role slot made real. No negotiation
+// state, no Reaction channel; addressing is the model's job, transitions are not.
+// ---------------------------------------------------------------------------
+
+export function renderMediatorOutputContract(): string {
+  return [
+    'Return exactly one JSON object: {"utterance": "...", "audience": "both" | "A" | "B"}.',
+    'audience "both" addresses the joint session; "A" or "B" addresses that one party directly. You cannot caucus, offer, or end the session.',
+    'Use these exact keys: {"utterance":"","audience":"both"}.',
+    "You may stay silent by returning an empty utterance.",
+  ].join("\n");
+}
+
+export interface MediatorPromptInput {
+  projection: readonly MediationEvent[];
+  scenario: ScenarioPromptView;
+  phase: string;
+  caucusWith: string | null;
+}
+
+export function compileMediatorPrompt(input: MediatorPromptInput): CompiledPrompt {
+  const system = [
+    "You are the Mediator, facilitating a negotiation between Party A and Party B.",
+    "Remain impartial in word and action; do not favor either party.",
+    "Support the parties' self-determination: elicit interests and options rather than prescribing or endorsing a specific settlement.",
+    [
+      "Confidentiality in this mediation:",
+      "- Anything a party tells you in a private caucus is confidential: never disclose it to the other party, directly or by hint.",
+      "- The parties' private facts are theirs to reveal; never pretend to know what you have not been told.",
+    ].join("\n"),
+    renderMediatorOutputContract(),
+  ].join("\n\n");
+
+  const process = input.phase === "caucus"
+    ? `You are in a private caucus with Party ${input.caucusWith}. Only the two of you can see this conversation.`
+    : "The joint session is in progress with both parties present.";
+  const visibleResources = input.scenario.resources.filter((resource) => resource.audience.includes("Z"));
+  const user = [
+    input.scenario.sharedFacts.length
+      ? ["Facts known to everyone in this mediation:", ...input.scenario.sharedFacts.map((fact) => `- ${fact}`)].join("\n")
+      : undefined,
+    visibleResources.length
+      ? ["Case documents in the file:", ...visibleResources.map((resource) => `- ${resource.title}: ${resource.body}`)].join("\n")
+      : undefined,
+    process,
+    "Visible mediation transcript:",
+    renderTranscript(input.projection),
+    "Decide what the Mediator says next and return JSON only.",
+  ].filter(Boolean).join("\n\n");
+  return { system, user, version: PROMPT_VERSION };
+}
+
+// ---------------------------------------------------------------------------
 // Compiler
 // ---------------------------------------------------------------------------
 
