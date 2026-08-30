@@ -103,6 +103,20 @@ const partyResponseJsonSchema = {
   },
 } as const;
 
+const venicePartyParameters = {
+  // The simulator supplies the complete Party persona and closed case record.
+  include_venice_system_prompt: false,
+  enable_web_search: "off",
+  enable_web_scraping: false,
+  enable_web_citations: false,
+  enable_x_search: false,
+  // Party turns need only the contract response, never model reasoning text.
+  disable_thinking: true,
+  strip_thinking_response: true,
+  // Ask Venice to keep inference within its end-to-end encrypted path.
+  enable_e2ee: true,
+} as const;
+
 export async function POST(request: Request) {
   const input = requestSchema.safeParse(await request.json().catch(() => null));
   if (!input.success) return Response.json({ error: `invalid request: ${input.error.message}` }, { status: 400 });
@@ -121,7 +135,7 @@ export async function POST(request: Request) {
     ...(config.temperature === undefined ? {} : { temperature: config.temperature }),
     ...(config.seed === undefined ? {} : { seed: config.seed }),
     ...(config.provider === "venice" ? {
-      venice_parameters: { include_venice_system_prompt: false },
+      venice_parameters: venicePartyParameters,
       response_format: { type: "json_schema", json_schema: partyResponseJsonSchema },
     } : {}),
   };

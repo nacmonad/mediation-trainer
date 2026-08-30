@@ -117,7 +117,16 @@ test("Venice requests use its native strict structured-output controls", async (
       }),
     }));
     assert.equal(response.status, 200);
-    assert.deepEqual(requestBody.venice_parameters, { include_venice_system_prompt: false });
+    assert.deepEqual(requestBody.venice_parameters, {
+      include_venice_system_prompt: false,
+      enable_web_search: "off",
+      enable_web_scraping: false,
+      enable_web_citations: false,
+      enable_x_search: false,
+      disable_thinking: true,
+      strip_thinking_response: true,
+      enable_e2ee: true,
+    });
     assert.equal((requestBody.response_format as { type?: string }).type, "json_schema");
     assert.deepEqual(
       (requestBody.response_format as { json_schema?: { required?: string[] } }).json_schema?.required,
