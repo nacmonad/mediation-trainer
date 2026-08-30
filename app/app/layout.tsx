@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mediation Trainer",
-  description: "A rehearsal environment for practicing mediators.",
+  title: "Obversa",
+  description: "Rehearse difficult mediations with independent simulated Parties.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
