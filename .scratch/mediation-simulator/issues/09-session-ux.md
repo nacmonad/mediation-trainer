@@ -1,7 +1,7 @@
 # 09 — Mediator Session UX
 
 Type: implementation
-Status: open
+Status: resolved
 Blocked by: 07 (resolved), 08 (resolved)
 
 ## Question
@@ -46,3 +46,14 @@ Connect the production Scenario boundary and XState Session actor to the mediato
 - Debug mode is accessible, opt-in, and excluded from ordinary review/export; no UI claims to expose hidden chain-of-thought.
 - Focused UI/engine integration tests cover the critical flow and privacy boundary. Existing participant smoke test, 26-check turn-model smoke test, engine/session tests, app lint, TypeScript, and production build pass.
 
+## Answer
+
+Resolved 2026-08-30. The app now ships the complete four-route Mediator flow: Scenario library, Scenario/setup view, live Session workspace with a durable URL id, and post-Session review. The library and setup project only shared facts and Case resources authorized for the Mediator; selected per-Party provider/model configuration stays memory-only and follows the Session into its debug trace.
+
+The live workspace dispatches exclusively through the typed `SessionActor` seam. XState remains the owner of Session phase while the plain-TypeScript driver owns the Event log, Projections, Negotiation state, audited provider attempts, and retry frontier. Party A, Mediator, and Party B have distinct left/center/right positions with persistent event-audience labels; Caucus is explicit and audience-gated; terminal declarations require confirmation; responsive layouts collapse to a single Projection without losing speaker or audience identity.
+
+Committed Session state is saved locally after every action and failure. Refresh rehydrates the XState phase without duplicating Events and labels the Session `Recovered`. `RETRY_BEAT` resumes only the failed/not-yet-run Party considerations, never re-appending the Mediator Event or replaying completed Party output. Review provides outcome, event-audience filters, local Mediator reflection, and a JSON export with debug invocation records stripped.
+
+Debug mode is opt-in and shows accessible Party-state borders plus audited provider/model configuration, attempts, visible Event ids, structured response/error data, and Negotiation state before/after. It never claims access to provider-hidden chain-of-thought.
+
+Verification passed: browser screenshot pre-flight of library/setup/live routes; participant-interface smoke test; turn-model smoke test (26 checks); all 11 engine/session tests; ESLint; TypeScript and Next.js 16 production build.

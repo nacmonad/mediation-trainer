@@ -1,5 +1,8 @@
 import type { InvocationAttempt, Phase } from "@/src/engine/driver";
 import type { Session } from "@/src/engine/domain";
+import type { ModelConfig } from "@/src/engine/domain";
+
+export type SessionSetupConfig = { A: ModelConfig; B: ModelConfig };
 
 export type SessionSnapshot<T extends string = string> = {
   version: 1;
@@ -12,6 +15,20 @@ export type SessionSnapshot<T extends string = string> = {
 };
 
 const key = (sessionId: string) => `mediation-trainer:session:${sessionId}`;
+const configKey = (sessionId: string) => `mediation-trainer:config:${sessionId}`;
+
+export function saveSessionSetup(sessionId: string, config: SessionSetupConfig): void {
+  sessionStorage.setItem(configKey(sessionId), JSON.stringify(config));
+}
+
+export function loadSessionSetup(sessionId: string): SessionSetupConfig | null {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(configKey(sessionId)) ?? "null") as SessionSetupConfig | null;
+    return value?.A?.provider && value?.B?.provider ? value : null;
+  } catch {
+    return null;
+  }
+}
 
 export function loadSessionSnapshot<T extends string>(sessionId: string): SessionSnapshot<T> | null {
   try {

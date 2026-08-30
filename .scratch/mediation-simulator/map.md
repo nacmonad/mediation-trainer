@@ -15,7 +15,7 @@ A buildable MVP spec for a **mediator-training simulator**: a human practices as
 - Per-seat participant model: every seat (A, B, Z, evaluator) is configurable as `human | agent`; MVP configuration is A+B agents, Z human. This keeps war-gaming mode reachable later without redesign.
 - Library selections (from OUTLINE.md, restated): **XState v5** owns session orchestration as a session actor with child actors; behavioral/negotiation state stays in plain TypeScript domain objects (never FSM states). **Vercel AI SDK** sits underneath the thin `ModelRuntime` interface (replaceable, never leaked into domain types); `@statelyai/agent` excluded as alpha. **Zod** for schemas/structured output. No LangChain/LangGraph.
 - Issue tracker: local markdown (`.scratch/mediation-simulator/`).
-- Current production lift: [09 — Mediator Session UX](./issues/09-session-ux.md) connects the production Scenario boundary and Session actor to the four-view mediator flow.
+- Current production lift: [09 — Mediator Session UX](./issues/09-session-ux.md) is complete; the Scenario boundary and Session actor now drive the four-view mediator flow.
 
 ## Decisions so far
 
@@ -30,7 +30,7 @@ A buildable MVP spec for a **mediator-training simulator**: a human practices as
 - Scenarios are hand-written JSON fixtures with a Zod schema; PLAN §15's three scenarios (commercial-basic, employment-intermediate, commercial-advanced) ship at MVP. (charting session, Round 2 Q6 / Round 3 Q4)
 - [Scenario contract and MVP fixture semantics validated](./issues/06-scenario-schema.md): strict versioned two-Party Scenario JSON; exact participant Audiences; action-based gated disclosure; separate Reservation value and authority; deterministic Scenario-tuned Reaction reduction; edge-triggered rules with Walkout precedence and terminality; descriptive post-Session human-evaluator packet; three fixed fixture briefs. Prototype primary source remains on `prototype/scenario-schema` and does not ship. (2026-08-29)
 - [Production Scenario layer implemented](./issues/08-production-scenario-layer.md): the app now parses the strict versioned contract and three MVP JSON fixtures through one deep plain-TypeScript module; participant projection, disclosure, Offer acceptance, tuned Reaction reduction, threshold precedence, and terminal Walkout are deterministic data-returning operations beneath the XState-owned Session phase. (2026-08-29)
-- [Mediator Session UX charted](./issues/09-session-ux.md): four route-level views; a responsive chat-like Projection with Party A left, Mediator centered, Party B right, and persistent event-audience labels; explicit Caucus and terminal actions; refresh recovery; accessible opt-in state/provider debugging without claimed hidden chain-of-thought; separate human review. (2026-08-30)
+- [Mediator Session UX implemented](./issues/09-session-ux.md): four route-level views; a responsive chat-like Projection with Party A left, Mediator centered, Party B right, and persistent event-audience labels; typed Caucus/terminal/retry actions; duplicate-safe refresh recovery; accessible opt-in state/provider debugging without claimed hidden chain-of-thought; separate human review and debug-free export. (2026-08-30)
 - Persistence is local-only (IndexedDB + OPFS), no accounts, with manual export/import; privacy layer (presidio-web, identity vault, private inference) is **post-MVP**; synthetic scenario documents for MVP. (charting session, Round 3 Q5 / Round 2 Q4)
 
 ## Not yet specified

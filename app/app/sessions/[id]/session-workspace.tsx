@@ -9,7 +9,7 @@ import { TurnDriver } from "@/src/engine/driver";
 import { ScriptedRuntime } from "@/src/engine/scripted-runtime";
 import { SessionActor } from "@/src/engine/session-actor";
 import type { Scenario } from "@/src/engine/scenario";
-import { loadSessionSnapshot, saveSessionSnapshot, type SessionSnapshot } from "@/src/session-storage";
+import { loadSessionSetup, loadSessionSnapshot, saveSessionSnapshot, type SessionSetupConfig, type SessionSnapshot } from "@/src/session-storage";
 
 type Id = "A" | "B" | "Z";
 type Resource = Scenario["resources"][number];
@@ -17,20 +17,26 @@ type AudienceChoice = "both" | "A" | "B";
 
 const party = (id: "A" | "B"): AgentSeat => ({ id, role: "party", kind: "agent", model: { provider: "ollama", model: "scripted" } });
 
-function makeActor(snapshot?: SessionSnapshot<Id> | null) {
-  const seats: readonly SeatConfig[] = [party("A"), party("B"), { id: "Z", role: "mediator", kind: "human" }];
+const defaultConfig: SessionSetupConfig = { A: { provider: "ollama", model: "scripted" }, B: { provider: "ollama", model: "scripted" } };
+
+function makeActor(snapshot?: SessionSnapshot<Id> | null, setup: SessionSetupConfig = defaultConfig) {
+  const seats: readonly SeatConfig[] = [
+    { ...party("A"), model: setup.A },
+    { ...party("B"), model: setup.B },
+    { id: "Z", role: "mediator", kind: "human" },
+  ];
   const session = snapshot?.session ?? createSession<Id>(seats);
   const driver = new TurnDriver(session, {
     A: new ScriptedRuntime([
       { utterance: "We want a practical resolution, but the underlying harm must be acknowledged.", reaction: { trustMediatorDelta: 4 } },
       { utterance: "Privately, certainty matters more than holding every part of our Position.", reaction: { rigidityDelta: -7 } },
       { utterance: "That proposal moves the conversation, though important terms remain open.", reaction: { willingnessToSettleDelta: 5 } },
-    ]),
+    ], setup.A),
     B: new ScriptedRuntime([
       { utterance: "We are prepared to listen, but we see the facts differently.", reaction: { trustMediatorDelta: 3 } },
       { utterance: "A durable agreement would need to address more than the headline number.", reaction: { rigidityDelta: -5 } },
       { utterance: "We can continue working from there.", reaction: { willingnessToSettleDelta: 6 } },
-    ]),
+    ], setup.B),
   });
   if (snapshot) driver.invocations.push(...snapshot.invocations);
   return new SessionActor(driver, snapshot?.phase);
@@ -73,16 +79,19 @@ export function SessionWorkspace({ sessionId, scenario, resources }: { sessionId
   const [debug, setDebug] = useState(false);
   const [confirm, setConfirm] = useState<"agreement" | "impasse" | null>(null);
   const [recovered, setRecovered] = useState(false);
+  const [setupConfig, setSetupConfig] = useState<SessionSetupConfig>(defaultConfig);
   void revision;
 
   useEffect(() => {
     const snapshot = loadSessionSnapshot<Id>(sessionId);
-    if (!snapshot || snapshot.scenarioSlug !== scenario.slug) return;
+    const configured = loadSessionSetup(sessionId) ?? defaultConfig;
+    if (snapshot && snapshot.scenarioSlug !== scenario.slug) return;
     const timer = window.setTimeout(() => {
-      const restored = makeActor(snapshot);
+      const restored = makeActor(snapshot, configured);
       setActor(restored);
       setPhase(restored.phase);
-      setRecovered(true);
+      setSetupConfig(configured);
+      setRecovered(Boolean(snapshot));
     }, 0);
     return () => window.clearTimeout(timer);
   }, [scenario.slug, sessionId]);
@@ -219,7 +228,7 @@ export function SessionWorkspace({ sessionId, scenario, resources }: { sessionId
           {(["agreement", "impasse", "walkout"] as string[]).includes(phase) && <button className="button-primary mt-5 w-full" onClick={() => void enterReview()}>Enter review</button>}
           {debug && <div className="debug-panel mt-6">
             <h2 className="font-semibold">Provider trace</h2>
-            <p className="mt-1 text-xs leading-5 text-[var(--muted)]">Scripted provider · {actor.driver.invocations.length} calls · prompt version proto-02</p>
+            <p className="mt-1 text-xs leading-5 text-[var(--muted)]">A: {setupConfig.A.provider}/{setupConfig.A.model}<br />B: {setupConfig.B.provider}/{setupConfig.B.model}<br />{actor.driver.invocations.length} calls · prompt version proto-02</p>
             <ol className="mt-3 space-y-2 text-xs">{actor.driver.invocations.map((call, index) => <li className="rounded-lg border border-[var(--line)] p-2" key={`${call.seatId}-${index}`}><details><summary className="cursor-pointer font-semibold">Party {call.seatId} · attempt {call.attempt} · {call.ok ? "complete" : "failed"}</summary><div className="mt-2 space-y-1 text-[var(--muted)]"><p>{call.visibleEventIds.length} visible Events · {call.promptVersion}</p><p>Before: anger {call.stateBefore.anger}, trust {call.stateBefore.trustMediator}</p><p>After: anger {call.stateAfter.anger}, trust {call.stateAfter.trustMediator}</p>{call.response && <pre className="overflow-x-auto whitespace-pre-wrap">{JSON.stringify(call.response, null, 2)}</pre>}{call.error && <p>{call.error}</p>}</div></details></li>)}</ol>
           </div>}
         </aside>
