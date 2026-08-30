@@ -1,37 +1,99 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --surface: #f4f7f6;
+  --panel: #ffffff;
+  --ink: #14201f;
+  --muted: #536563;
+  --line: #d6dfdd;
+  --line-strong: #aebfbc;
+  --accent: #0c625a;
+  --accent-hover: #084b45;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --surface: #101817;
+    --panel: #172220;
+    --ink: #edf5f3;
+    --muted: #adbfbc;
+    --line: #2d3c39;
+    --line-strong: #526763;
+    --accent: #73cfc3;
+    --accent-hover: #a0e1d8;
   }
 }
 
-body {
-  background: #f4f4f5;
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+* { box-sizing: border-box; }
+html { background: var(--surface); }
+body { margin: 0; font-family: var(--font-geist-sans), sans-serif; }
+a, button, input, select { transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, transform 100ms ease; }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 3px; }
+button:active:not(:disabled), a:active { transform: translateY(1px); }
+
+.button-primary, .button-secondary {
+  align-items: center;
+  border-radius: .75rem;
+  display: inline-flex;
+  font-size: .875rem;
+  font-weight: 650;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: .7rem 1rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.button-primary { background: var(--accent); border: 1px solid var(--accent); color: white; }
+.button-primary:hover:not(:disabled) { background: var(--accent-hover); }
+.button-primary:disabled { cursor: not-allowed; opacity: .45; }
+.button-secondary { background: transparent; border: 1px solid var(--line-strong); color: var(--ink); }
+.button-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+.field { display: grid; gap: .45rem; }
+.field > span { font-size: .875rem; font-weight: 650; }
+.field input, .field select { background: var(--surface); border: 1px solid var(--line-strong); border-radius: .65rem; color: var(--ink); min-height: 2.65rem; padding: .55rem .7rem; width: 100%; }
+.field small { color: var(--muted); line-height: 1.4; }
+.status-dot { background: var(--accent); border-radius: 999px; display: inline-block; height: .55rem; width: .55rem; }
+
+.debug-toggle { align-items: center; display: flex; font-size: .8rem; font-weight: 650; gap: .45rem; }
+.debug-toggle input { accent-color: var(--accent); height: 1rem; width: 1rem; }
+.party-status { border: 2px solid var(--line); border-radius: .75rem; padding: .7rem; }
+.party-status.debug-steady { border-color: #19877c; }
+.party-status.debug-warning { border-color: #b36b16; }
+.party-status.debug-danger { border-color: #c33b3b; }
+.session-log { scrollbar-color: var(--line-strong) transparent; }
+.event { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.event-bubble { border: 1px solid var(--line); border-radius: .85rem; max-width: 34rem; padding: .8rem 1rem; }
+.event-a .event-bubble { background: var(--surface); grid-column: 1 / span 2; justify-self: start; }
+.event-z .event-bubble { background: color-mix(in srgb, var(--accent) 9%, var(--panel)); border-color: color-mix(in srgb, var(--accent) 32%, var(--line)); grid-column: 2 / span 1; justify-self: center; }
+.event-b .event-bubble { background: var(--surface); grid-column: 2 / span 2; justify-self: end; }
+.event-system .event-bubble { border-style: dashed; color: var(--muted); grid-column: 1 / -1; justify-self: center; text-align: center; }
+.audience-label { border: 1px solid var(--line-strong); border-radius: 999px; color: var(--muted); font-weight: 600; padding: .15rem .45rem; }
+.pending-beat { align-items: center; color: var(--muted); display: flex; font-size: .8rem; gap: .6rem; padding: .5rem; }
+.pending-beat span { animation: pulse 1.2s ease-in-out infinite; background: var(--accent); border-radius: 999px; height: .55rem; width: .55rem; }
+.audience-select { background: var(--panel); border: 1px solid var(--line-strong); border-radius: .55rem; color: var(--ink); padding: .4rem .55rem; }
+.composer { background: var(--panel); border: 1px solid var(--line-strong); border-radius: .75rem; color: var(--ink); min-height: 4.25rem; padding: .7rem .8rem; resize: vertical; width: 100%; }
+.error-panel { align-items: center; background: color-mix(in srgb, #c33b3b 9%, var(--panel)); border: 1px solid #c33b3b; border-radius: .7rem; color: var(--ink); display: flex; font-size: .85rem; justify-content: space-between; padding: .65rem .8rem; }
+.error-panel button { color: #a62f2f; font-weight: 700; }
+.debug-panel { border-top: 1px solid var(--line); padding-top: 1rem; }
+.dialog-backdrop { align-items: center; background: rgba(5, 15, 14, .58); display: flex; inset: 0; justify-content: center; padding: 1rem; position: fixed; z-index: 50; }
+.confirm-dialog { background: var(--panel); border: 1px solid var(--line-strong); border-radius: 1rem; box-shadow: 0 24px 80px rgba(5, 20, 18, .24); max-width: 28rem; padding: 1.5rem; width: 100%; }
+.review-notes { background: var(--surface); border: 1px solid var(--line-strong); border-radius: .7rem; color: var(--ink); padding: .7rem; resize: vertical; width: 100%; }
+
+@keyframes pulse { 50% { opacity: .35; transform: scale(.75); } }
+
+@media (max-width: 767px) {
+  .event { display: block; }
+  .event-bubble { max-width: 92%; }
+  .event-z .event-bubble { margin-inline: auto; }
+  .event-b .event-bubble { margin-left: auto; }
 }
 
-button {
-  border-radius: 0.5rem;
-  background: #18181b;
-  color: white;
-  cursor: pointer;
-  font-weight: 600;
-  padding: 0.6rem 0.9rem;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
-
-button:disabled { cursor: not-allowed; opacity: 0.45; }

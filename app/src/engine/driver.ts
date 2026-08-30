@@ -156,6 +156,7 @@ export class TurnDriver<T extends string> {
   private fallbackPhase: Phase = "setup";
   private phaseOwner?: () => Phase;
   private pendingWalkout: T | null = null;
+  private pendingBeat: Consideration<T>[] = [];
   /** Human-readable beat trace (the HTML mirror renders this). */
   readonly trace: string[] = [];
   /** Every model-call attempt, success or failure. */
@@ -190,6 +191,19 @@ export class TurnDriver<T extends string> {
     const partyId = this.pendingWalkout;
     this.pendingWalkout = null;
     return partyId;
+  }
+
+  get hasPendingBeat(): boolean {
+    return this.pendingBeat.length > 0;
+  }
+
+  /** Resume only the failed and not-yet-run Party considerations. */
+  async retryPendingBeat(): Promise<this> {
+    this.requirePhaseIn(["joint_session", "caucus"], "retryPendingBeat");
+    if (!this.pendingBeat.length) throw new TurnError("phase", "no failed beat is available to retry");
+    const pending = [...this.pendingBeat];
+    await this.runConsiderations(pending);
+    return this;
   }
 
   // -- mediator actions (this is the UI's action surface) ------------------
@@ -294,17 +308,25 @@ export class TurnDriver<T extends string> {
    * after each applied Reaction, walkout as the one system-forced transition.
    */
   private async runBeats(addressedPartyIds: T[]): Promise<void> {
-    const frontier: Consideration<T>[] = addressedPartyIds.map((partyId) => ({
+    await this.runConsiderations(addressedPartyIds.map((partyId) => ({
       partyId,
       mandatory: false,
       viaVolunteering: false,
-    }));
+    })));
+  }
+
+  private async runConsiderations(initial: Consideration<T>[]): Promise<void> {
+    const frontier = [...initial];
     const volunteered = new Set<T>(); // decision 5: one consideration per party per beat
     const forcedFired = new Set<string>();
 
     while (frontier.length) {
-      if (this.phase !== "joint_session" && this.phase !== "caucus") return;
+      if (this.phase !== "joint_session" && this.phase !== "caucus") {
+        this.pendingBeat = [];
+        return;
+      }
       const c = frontier.shift()!;
+      this.pendingBeat = [c, ...frontier];
       const response = await this.callSeat(c); // transactional; failures are loud
 
       const inCaucus = this.phase === "caucus";
@@ -357,6 +379,7 @@ export class TurnDriver<T extends string> {
         if (forcedFired.has(key)) continue;
         forcedFired.add(key);
         if (rule.effect === "walkout") {
+          this.pendingBeat = [];
           this.systemWalkout(rule.partyId);
           return; // the one system-forced transition; the beat is over
         }
@@ -374,7 +397,9 @@ export class TurnDriver<T extends string> {
           frontier.push({ partyId: other, mandatory: false, viaVolunteering: true });
         }
       }
+      this.pendingBeat = [...frontier];
     }
+    this.pendingBeat = [];
   }
 
   /**

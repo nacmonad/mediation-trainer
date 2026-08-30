@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createSession, type AgentSeat, type SeatConfig } from "./domain";
-import { TurnDriver, type ScenarioRule } from "./driver";
+import { TurnDriver, TurnError, type DriverRuntime, type ScenarioRule } from "./driver";
 import { ScriptedRuntime } from "./scripted-runtime";
 import { SessionActor, sessionInputSchema } from "./session-actor";
 
@@ -53,4 +53,44 @@ test("future proposer inputs are schema-validated", () => {
   assert.equal(sessionInputSchema.safeParse({ type: "OPEN_CAUCUS", partyId: "A" }).success, true);
   assert.equal(sessionInputSchema.safeParse({ type: "PARTY_WALKS_OUT", partyId: "A" }).success, false);
   assert.equal(sessionInputSchema.safeParse({ type: "SEND", audience: [], text: "" }).success, false);
+});
+
+test("restored phase rehydrates XState without duplicating committed Events", async () => {
+  const original = makeActor();
+  await original.dispatch({ type: "OPEN_SESSION" });
+  await original.dispatch({ type: "DECLARE_IMPASS" });
+  const committedCount = original.session.log.length;
+  const restoredDriver = new TurnDriver(original.session, {});
+  const restored = new SessionActor(restoredDriver, "impasse");
+
+  assert.equal(restored.phase, "impasse");
+  assert.equal(restored.session.log.length, committedCount);
+  await restored.dispatch({ type: "ENTER_REVIEW" });
+  assert.equal(restored.phase, "review");
+  assert.equal(restored.session.log.length, committedCount);
+});
+
+test("manual retry resumes the failed Party call without duplicating the Mediator Event", async () => {
+  let calls = 0;
+  const flaky: DriverRuntime = {
+    config: { provider: "ollama", model: "flaky" },
+    async respond() {
+      calls += 1;
+      if (calls <= 2) throw new TurnError("transport", "temporary outage");
+      return { utterance: "A recovered.", reaction: {} };
+    },
+  };
+  const session = createSession<Id>(seats);
+  const actor = new SessionActor(new TurnDriver(session, {
+    A: flaky,
+    B: new ScriptedRuntime([{ utterance: "", reaction: {} }]),
+  }));
+  await actor.dispatch({ type: "OPEN_SESSION" });
+  await assert.rejects(actor.dispatch({ type: "SEND", audience: ["A"], text: "One committed message." }));
+  assert.equal(actor.session.log.filter((event) => event.sender === "Z").length, 1);
+
+  await actor.dispatch({ type: "RETRY_BEAT" });
+  assert.equal(actor.session.log.filter((event) => event.sender === "Z").length, 1);
+  assert.equal(actor.session.log.filter((event) => event.sender === "A").length, 1);
+  assert.equal(actor.driver.hasPendingBeat, false);
 });

@@ -10,6 +10,7 @@ const seatId = z.string().min(1);
 export const sessionInputSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("OPEN_SESSION") }),
   z.object({ type: z.literal("SEND"), audience: z.array(seatId).min(1), text: z.string().min(1) }),
+  z.object({ type: z.literal("RETRY_BEAT") }),
   z.object({ type: z.literal("OPEN_CAUCUS"), partyId: seatId }),
   z.object({ type: z.literal("CLOSE_CAUCUS") }),
   z.object({ type: z.literal("DECLARE_AGREEMENT") }),
@@ -45,6 +46,7 @@ const sessionMachine = setup({
     joint_session: {
       on: {
         SEND: {},
+        RETRY_BEAT: {},
         OPEN_CAUCUS: "caucus",
         DECLARE_AGREEMENT: "agreement",
         DECLARE_IMPASS: "impasse",
@@ -54,6 +56,7 @@ const sessionMachine = setup({
     caucus: {
       on: {
         SEND: {},
+        RETRY_BEAT: {},
         CLOSE_CAUCUS: "joint_session",
         PARTY_WALKS_OUT: "walkout",
       },
@@ -75,12 +78,28 @@ export type SessionActorSnapshot = SnapshotFrom<typeof sessionMachine>;
 export class SessionActor<T extends string> {
   private readonly actor;
 
-  constructor(readonly driver: TurnDriver<T>) {
+  constructor(readonly driver: TurnDriver<T>, restoredPhase: Phase = "setup") {
     const partyIds = driver.session.seats
       .filter((seat) => seat.role === "party" && seat.kind === "agent")
       .map((seat) => seat.id);
     this.actor = createActor(sessionMachine, { input: { partyIds } }).start();
+    if (restoredPhase !== "setup") {
+      this.actor.send({ type: "OPEN_SESSION" });
+      if (restoredPhase === "caucus") this.actor.send({ type: "OPEN_CAUCUS", partyId: driver.session.caucusWith ?? "A" });
+      if (["agreement", "impasse", "walkout", "review"].includes(restoredPhase)) {
+        const terminal = this.restoredTerminalPhase(restoredPhase);
+        this.actor.send(terminal === "agreement" ? { type: "DECLARE_AGREEMENT" } : terminal === "impasse" ? { type: "DECLARE_IMPASS" } : { type: "PARTY_WALKS_OUT", partyId: "A" });
+        if (restoredPhase === "review") this.actor.send({ type: "ENTER_REVIEW" });
+      }
+    }
     driver.attachPhaseOwner(() => this.phase);
+  }
+
+  private restoredTerminalPhase(phase: Phase): "agreement" | "impasse" | "walkout" {
+    if (phase !== "review") return phase as "agreement" | "impasse" | "walkout";
+    const ending = [...this.driver.session.log].reverse().find((event) => event.kind === "session_event" && (event.payload as { type?: string }).type === "session_ended");
+    const outcome = (ending?.payload as { outcome?: string } | undefined)?.outcome;
+    return outcome === "agreement" || outcome === "impasse" || outcome === "walkout" ? outcome : "impasse";
   }
 
   get phase(): Phase {
@@ -107,6 +126,14 @@ export class SessionActor<T extends string> {
         const walkoutPartyId = this.driver.consumeSystemWalkout();
         if (walkoutPartyId) {
           this.actor.send({ type: "PARTY_WALKS_OUT", partyId: walkoutPartyId });
+          return;
+        }
+        break;
+      case "RETRY_BEAT":
+        await this.driver.retryPendingBeat();
+        const retryWalkoutPartyId = this.driver.consumeSystemWalkout();
+        if (retryWalkoutPartyId) {
+          this.actor.send({ type: "PARTY_WALKS_OUT", partyId: retryWalkoutPartyId });
           return;
         }
         break;
