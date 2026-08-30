@@ -60,3 +60,61 @@ test("gateway fails before contacting a provider when the memory-only credential
     globalThis.fetch = originalFetch;
   }
 });
+
+test("gateway canonicalizes Venice-style bare Reaction keys into bounded deltas", async () => {
+  const sessionId = "00000000-0000-4000-8000-000000000012";
+  registerCredentials(sessionId, { A: "test-key", B: "" });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({
+    choices: [{ message: { content: JSON.stringify({
+      utterance: "We need the invoice resolved.",
+      reaction: { anger: 2, willingnessToSettle: 3, rigidity: -1, trustOtherParty: 1 },
+    }) } }],
+  });
+  try {
+    const response = await POST(new Request("http://localhost/api/models/openai-compatible", {
+      method: "POST",
+      body: JSON.stringify({
+        config: { provider: "openai", model: "venice-model", endpoint: "https://api.venice.ai/api/v1/" },
+        sessionId,
+        partyId: "A",
+        prompt: { system: "Return JSON.", user: "Respond." },
+      }),
+    }));
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.deepEqual(body.response.reaction, {
+      angerDelta: 2,
+      willingnessToSettleDelta: 3,
+      rigidityDelta: -1,
+      trustOtherPartyDelta: 1,
+    });
+  } finally {
+    forgetCredentials(sessionId);
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("gateway rejects bare Reaction values that look like absolute state", async () => {
+  const sessionId = "00000000-0000-4000-8000-000000000013";
+  registerCredentials(sessionId, { A: "test-key", B: "" });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({
+    choices: [{ message: { content: JSON.stringify({ utterance: "No.", reaction: { anger: 80 } }) } }],
+  });
+  try {
+    const response = await POST(new Request("http://localhost/api/models/openai-compatible", {
+      method: "POST",
+      body: JSON.stringify({
+        config: { provider: "openai", model: "venice-model", endpoint: "https://api.venice.ai/api/v1/" },
+        sessionId,
+        partyId: "A",
+        prompt: { system: "Return JSON.", user: "Respond." },
+      }),
+    }));
+    assert.equal(response.status, 422);
+  } finally {
+    forgetCredentials(sessionId);
+    globalThis.fetch = originalFetch;
+  }
+});

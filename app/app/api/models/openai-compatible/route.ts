@@ -23,16 +23,35 @@ const upstreamSchema = z.object({
   usage: z.object({ prompt_tokens: z.number().int().nonnegative().optional(), completion_tokens: z.number().int().nonnegative().optional(), total_tokens: z.number().int().nonnegative().optional() }).optional(),
 }).passthrough();
 
-const agentResponseSchema = z.object({
-  utterance: z.string(),
-  reaction: z.object({
+const reactionSchema = z.preprocess((value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const reaction = { ...value } as Record<string, unknown>;
+  const aliases = {
+    anger: "angerDelta",
+    trustMediator: "trustMediatorDelta",
+    trustOtherParty: "trustOtherPartyDelta",
+    willingnessToSettle: "willingnessToSettleDelta",
+    rigidity: "rigidityDelta",
+    fatigue: "fatigueDelta",
+  } as const;
+  for (const [alias, canonical] of Object.entries(aliases)) {
+    if (!(alias in reaction) || canonical in reaction) continue;
+    reaction[canonical] = reaction[alias];
+    delete reaction[alias];
+  }
+  return reaction;
+}, z.object({
     angerDelta: z.number().finite().min(-12).max(12).optional(),
     trustMediatorDelta: z.number().finite().min(-12).max(12).optional(),
     trustOtherPartyDelta: z.number().finite().min(-12).max(12).optional(),
     willingnessToSettleDelta: z.number().finite().min(-12).max(12).optional(),
     rigidityDelta: z.number().finite().min(-12).max(12).optional(),
     fatigueDelta: z.number().finite().min(-12).max(12).optional(),
-  }).strict(),
+  }).strict());
+
+const agentResponseSchema = z.object({
+  utterance: z.string(),
+  reaction: reactionSchema,
   offer: z.object({ amount: z.number().finite().nonnegative(), terms: z.string().optional() }).strict().optional(),
 }).strict();
 

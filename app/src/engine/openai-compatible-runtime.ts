@@ -44,6 +44,7 @@ export function compilePartyPrompt(input: {
     "Stay in character. Respond only from the information visible to you.",
     "Return exactly one JSON object with keys: utterance, reaction, and optional offer.",
     "reaction may contain only numeric deltas for anger, trustMediator, trustOtherParty, willingnessToSettle, rigidity, and fatigue. Keep each delta between -12 and 12.",
+    'Use these exact Reaction keys: {"angerDelta":0,"trustMediatorDelta":0,"trustOtherPartyDelta":0,"willingnessToSettleDelta":0,"rigidityDelta":0,"fatigueDelta":0}. Omit unchanged keys.',
     "offer, when present, must be {\"amount\": number, \"terms\": string?}. Do not put an offer in prose without also structuring it.",
     input.mandatory ? "You must provide a non-empty utterance." : "You may decline to speak by returning an empty utterance.",
   ].filter(Boolean).join("\n\n");
