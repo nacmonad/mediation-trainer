@@ -1,37 +1,65 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --surface: #f4f7f6;
+  --panel: #ffffff;
+  --ink: #14201f;
+  --muted: #536563;
+  --line: #d6dfdd;
+  --line-strong: #aebfbc;
+  --accent: #0c625a;
+  --accent-hover: #084b45;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --surface: #101817;
+    --panel: #172220;
+    --ink: #edf5f3;
+    --muted: #adbfbc;
+    --line: #2d3c39;
+    --line-strong: #526763;
+    --accent: #73cfc3;
+    --accent-hover: #a0e1d8;
   }
 }
 
-body {
-  background: #f4f4f5;
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+* { box-sizing: border-box; }
+html { background: var(--surface); }
+body { margin: 0; font-family: var(--font-geist-sans), sans-serif; }
+a, button, input, select { transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, transform 100ms ease; }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 3px; }
+button:active:not(:disabled), a:active { transform: translateY(1px); }
 
-button {
-  border-radius: 0.5rem;
-  background: #18181b;
-  color: white;
-  cursor: pointer;
-  font-weight: 600;
-  padding: 0.6rem 0.9rem;
+.button-primary, .button-secondary {
+  align-items: center;
+  border-radius: .75rem;
+  display: inline-flex;
+  font-size: .875rem;
+  font-weight: 650;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: .7rem 1rem;
+  text-decoration: none;
+  white-space: nowrap;
 }
+.button-primary { background: var(--accent); border: 1px solid var(--accent); color: white; }
+.button-primary:hover:not(:disabled) { background: var(--accent-hover); }
+.button-primary:disabled { cursor: not-allowed; opacity: .45; }
+.button-secondary { background: transparent; border: 1px solid var(--line-strong); color: var(--ink); }
+.button-secondary:hover { border-color: var(--accent); color: var(--accent); }
 
-button:disabled { cursor: not-allowed; opacity: 0.45; }
+.field { display: grid; gap: .45rem; }
+.field > span { font-size: .875rem; font-weight: 650; }
+.field input, .field select { background: var(--surface); border: 1px solid var(--line-strong); border-radius: .65rem; color: var(--ink); min-height: 2.65rem; padding: .55rem .7rem; width: 100%; }
+.field small { color: var(--muted); line-height: 1.4; }
+.status-dot { background: var(--accent); border-radius: 999px; display: inline-block; height: .55rem; width: .55rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}
