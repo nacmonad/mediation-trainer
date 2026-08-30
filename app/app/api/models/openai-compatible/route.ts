@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { readCredential } from "@/src/server-credential-vault";
+
 export const runtime = "nodejs";
 
 const requestSchema = z.object({
@@ -10,7 +12,8 @@ const requestSchema = z.object({
     temperature: z.number().min(0).max(2).optional(),
     seed: z.number().int().optional(),
   }).strict(),
-  apiKey: z.string(),
+  sessionId: z.string().uuid(),
+  partyId: z.enum(["A", "B"]),
   prompt: z.object({ system: z.string().min(1), user: z.string().min(1) }).strict(),
 }).strict();
 
@@ -55,7 +58,11 @@ export async function POST(request: Request) {
   const input = requestSchema.safeParse(await request.json().catch(() => null));
   if (!input.success) return Response.json({ error: `invalid request: ${input.error.message}` }, { status: 400 });
 
-  const { config, apiKey, prompt } = input.data;
+  const { config, sessionId, partyId, prompt } = input.data;
+  const apiKey = readCredential(sessionId, partyId);
+  if (apiKey === undefined) {
+    return Response.json({ error: "Provider credential is unavailable. Return to Scenario setup and begin a new Session." }, { status: 401 });
+  }
   const upstreamRequest = {
     model: config.model,
     messages: [

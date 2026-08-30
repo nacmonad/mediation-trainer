@@ -69,7 +69,8 @@ export class OpenAICompatibleRuntime implements DriverRuntime {
 
   constructor(
     readonly config: ModelConfig,
-    private readonly apiKey: string,
+    private readonly sessionId: string,
+    private readonly partyId: "A" | "B",
   ) {}
 
   async respond(input: { projection: readonly MediationEvent[]; runtime: PartyRuntime; mandatory: boolean }): Promise<AgentResponse> {
@@ -80,7 +81,7 @@ export class OpenAICompatibleRuntime implements DriverRuntime {
       response = await fetch("/api/models/openai-compatible", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ config: this.config, apiKey: this.apiKey, prompt }),
+        body: JSON.stringify({ config: this.config, sessionId: this.sessionId, partyId: this.partyId, prompt }),
       });
     } catch (cause) {
       throw new TurnError("transport", cause instanceof Error ? cause.message : String(cause));

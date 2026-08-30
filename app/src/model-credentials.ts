@@ -1,14 +1,16 @@
 export type PartyId = "A" | "B";
 
-const credentials = new Map<string, Partial<Record<PartyId, string>>>();
-
-export function saveSessionCredentials(
+export async function registerSessionCredentials(
   sessionId: string,
-  values: Partial<Record<PartyId, string>>,
-): void {
-  credentials.set(sessionId, { ...values });
-}
-
-export function loadSessionCredential(sessionId: string, partyId: PartyId): string {
-  return credentials.get(sessionId)?.[partyId] ?? "";
+  values: Record<PartyId, string>,
+): Promise<void> {
+  const response = await fetch("/api/session-credentials", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ sessionId, credentials: values }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { error?: string } | null;
+    throw new Error(body?.error ?? "Could not register memory-only provider credentials.");
+  }
 }

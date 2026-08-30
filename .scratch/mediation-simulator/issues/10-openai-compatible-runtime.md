@@ -14,6 +14,6 @@ Each Party must support its own model, OpenAI-compatible base URL, and memory-on
 
 Implemented on `ticket/10-openai-compatible-runtime`. The Session now constructs an `OpenAICompatibleRuntime` for each Party rather than a `ScriptedRuntime`. Setup includes OpenAI, Ollama, and custom OpenAI-compatible presets, with independent endpoints/models/keys for Party A and Party B. The server gateway calls `/chat/completions`, accepts compatible JSON or fenced-JSON output, validates Reaction bounds and optional structured Offers, and maps provider/transport failures into the driver's existing retry semantics.
 
-Provider audit data includes sanitized messages, raw provider response, request id, latency, and token usage when reported. It is attached to the existing invocation trace and remains excluded from ordinary Session export. API keys live only in a module-memory credential vault and are lost on refresh by design.
+Provider audit data includes sanitized messages, raw provider response, request id, latency, and token usage when reported. It is attached to the existing invocation trace and remains excluded from ordinary Session export. API keys are registered into a short-lived server-RAM vault before Session navigation; later provider calls carry only the opaque Session id and Party id. Keys never enter browser storage, model-call payloads, debug output, or Session exports. Missing/expired credentials fail before contacting the provider.
 
 Automated verification passes. Live validation against at least one configured provider remains before resolution.

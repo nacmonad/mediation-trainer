@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ModelConfig } from "@/src/engine/domain";
-import { saveSessionCredentials } from "@/src/model-credentials";
+import { registerSessionCredentials } from "@/src/model-credentials";
 import { saveSessionSetup } from "@/src/session-storage";
 
 const providers: readonly { value: ModelConfig["provider"]; label: string }[] = [
@@ -59,13 +59,22 @@ export function PartySetup({ scenarioSlug }: { scenarioSlug: string }) {
   const [configB, setConfigB] = useState<ModelConfig>({ provider: "openai", ...defaults.openai });
   const [apiKeyA, setApiKeyA] = useState("");
   const [apiKeyB, setApiKeyB] = useState("");
+  const [error, setError] = useState("");
+  const [starting, setStarting] = useState(false);
   const valid = Boolean(configA.model.trim() && configA.endpoint?.trim() && configB.model.trim() && configB.endpoint?.trim());
 
-  function beginSession() {
+  async function beginSession() {
+    setError("");
+    setStarting(true);
     const sessionId = crypto.randomUUID();
-    saveSessionSetup(sessionId, { A: configA, B: configB });
-    saveSessionCredentials(sessionId, { A: apiKeyA, B: apiKeyB });
-    router.push(`/sessions/${sessionId}?scenario=${scenarioSlug}`);
+    try {
+      await registerSessionCredentials(sessionId, { A: apiKeyA, B: apiKeyB });
+      saveSessionSetup(sessionId, { A: configA, B: configB });
+      router.push(`/sessions/${sessionId}?scenario=${scenarioSlug}`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+      setStarting(false);
+    }
   }
 
   return (
@@ -78,11 +87,12 @@ export function PartySetup({ scenarioSlug }: { scenarioSlug: string }) {
       </div>
       <button
         className="button-primary mt-7 w-full"
-        disabled={!valid}
-        onClick={beginSession}
+        disabled={!valid || starting}
+        onClick={() => void beginSession()}
       >
-        Begin Session
+        {starting ? "Preparing Session…" : "Begin Session"}
       </button>
+      {error && <p className="error-panel mt-3" role="alert">{error}</p>}
     </aside>
   );
 }
