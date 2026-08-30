@@ -507,6 +507,17 @@ Each scenario should define:
 - evaluation rubric,
 - difficulty/version.
 
+### Scenario editor (planned feature)
+
+An in-app editor so practitioners can author their own scenarios without hand-writing JSON fixtures. Deliberately deferred: a wayfinder session is required to settle the design before implementation. Scope sketch to return to:
+
+- form-driven authoring of parties: personas, speaking style, behavioral instructions, emotional triggers, positions, reservation values, authority limits, BATNA/WATNA, hidden interests;
+- case-resource upload with per-audience visibility (shared vs party-private), matching the `CaseResource` visibility scopes;
+- disclosure rules and threshold/walkout rules authored against the same primitives the engine already executes;
+- editor output validates against the versioned scenario schema (`schemaVersion`), so editor-produced and hand-written JSON fixtures are interchangeable; import/export remains JSON;
+- scenario versioning and duplication (iterate on a scenario between sessions);
+- unresolved for the wayfinder session: resource upload/derivation UX (synthetic documents vs file import), how much authoring is guided vs free-form, and whether authoring is local-only or shareable.
+
 ---
 
 ## 13. Model heterogeneity as a product feature
