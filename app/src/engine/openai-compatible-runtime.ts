@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import type { MediationEvent, ModelConfig, PartyRuntime } from "./domain";
 import { TurnError, type AgentResponse, type DriverRuntime, type RuntimeCallAudit } from "./driver";
+import { compilePartyPrompt, type ScenarioPromptView } from "./prompt-compiler";
 
 const apiResponseSchema = z.object({
   response: z.object({
@@ -25,46 +26,6 @@ const apiResponseSchema = z.object({
   }),
 });
 
-function eventText(event: MediationEvent): string {
-  const payload = event.payload as Record<string, unknown>;
-  if (typeof payload.text === "string") return payload.text;
-  if (event.kind === "offer" && typeof payload.amount === "number") return `Offer amount: ${payload.amount}; terms: ${String(payload.terms ?? "none")}`;
-  return JSON.stringify(payload);
-}
-
-export function compilePartyPrompt(input: {
-  projection: readonly MediationEvent[];
-  runtime: PartyRuntime;
-  mandatory: boolean;
-}): { system: string; user: string } {
-  const { runtime } = input;
-  const system = [
-    `You are ${runtime.persona.displayName}, a party in a mediator-led negotiation.`,
-    runtime.persona.brief,
-    "Stay in character. Respond only from the information visible to you.",
-    "Return exactly one JSON object with keys: utterance, reaction, and optional offer.",
-    "reaction may contain only numeric deltas for anger, trustMediator, trustOtherParty, willingnessToSettle, rigidity, and fatigue. Keep each delta between -12 and 12.",
-    'Use these exact Reaction keys: {"angerDelta":0,"trustMediatorDelta":0,"trustOtherPartyDelta":0,"willingnessToSettleDelta":0,"rigidityDelta":0,"fatigueDelta":0}. Omit unchanged keys.',
-    "offer, when present, must be {\"amount\": number, \"terms\": string?}. Do not put an offer in prose without also structuring it.",
-    input.mandatory ? "You must provide a non-empty utterance." : "You may decline to speak by returning an empty utterance.",
-  ].filter(Boolean).join("\n\n");
-  const user = [
-    "Your private negotiation context:",
-    JSON.stringify({
-      state: runtime.negotiation,
-      privateFacts: runtime.knowledge.privateFacts,
-      disclosedFacts: runtime.knowledge.disclosedFacts,
-      notes: runtime.memory.notes,
-    }, null, 2),
-    "Visible mediation transcript:",
-    input.projection.length
-      ? input.projection.map((event) => `${event.seq}. ${event.sender}: ${eventText(event)}`).join("\n")
-      : "(No visible events yet.)",
-    "Decide what this party does next and return JSON only.",
-  ].join("\n\n");
-  return { system, user };
-}
-
 export class OpenAICompatibleRuntime implements DriverRuntime {
   lastCall?: RuntimeCallAudit;
 
@@ -72,11 +33,12 @@ export class OpenAICompatibleRuntime implements DriverRuntime {
     readonly config: ModelConfig,
     private readonly sessionId: string,
     private readonly partyId: "A" | "B",
+    private readonly scenario: ScenarioPromptView,
   ) {}
 
   async respond(input: { projection: readonly MediationEvent[]; runtime: PartyRuntime; mandatory: boolean }): Promise<AgentResponse> {
     this.lastCall = undefined;
-    const prompt = compilePartyPrompt(input);
+    const prompt = compilePartyPrompt({ ...input, scenario: this.scenario });
     let response: Response;
     try {
       response = await fetch("/api/models/openai-compatible", {
