@@ -16,7 +16,7 @@ A buildable MVP spec for a **mediator-training simulator**: a human practices as
 - Library selections (from OUTLINE.md, restated): **XState v5** owns session orchestration as a session actor with child actors; behavioral/negotiation state stays in plain TypeScript domain objects (never FSM states). **Vercel AI SDK** sits underneath the thin `ModelRuntime` interface (replaceable, never leaked into domain types); `@statelyai/agent` excluded as alpha. **Zod** for schemas/structured output. No LangChain/LangGraph.
 - Issue tracker: local markdown (`.scratch/mediation-simulator/`).
 - Current production lift: [09 — Mediator Session UX](./issues/09-session-ux.md) is complete; the Scenario boundary and Session actor now drive the four-view mediator flow.
-- Current provider integration: [10 — OpenAI-compatible Party runtime](./issues/10-openai-compatible-runtime.md) is live-validated and complete, including the Venice AI preset and provider-specific structured-output controls.
+- Current provider integration: [10 — OpenAI-compatible Party runtime](./issues/10-openai-compatible-runtime.md) is live-validated and complete, including the Venice AI preset and provider-specific structured-output controls. [11 — Anthropic Party runtime](./issues/11-anthropic-adapter.md) is implemented (live API smoke test still pending); the `ollama` provider value collapsed into `openai-compatible` — Ollama is a local endpoint preset, not a provider.
 
 ## Decisions so far
 
@@ -33,14 +33,14 @@ A buildable MVP spec for a **mediator-training simulator**: a human practices as
 - [Production Scenario layer implemented](./issues/08-production-scenario-layer.md): the app now parses the strict versioned contract and three MVP JSON fixtures through one deep plain-TypeScript module; participant projection, disclosure, Offer acceptance, tuned Reaction reduction, threshold precedence, and terminal Walkout are deterministic data-returning operations beneath the XState-owned Session phase. (2026-08-29)
 - [Mediator Session UX implemented](./issues/09-session-ux.md): four route-level views; a responsive chat-like Projection with Party A left, Mediator centered, Party B right, and persistent event-audience labels; typed Caucus/terminal/retry actions; duplicate-safe refresh recovery; accessible opt-in state/provider debugging without claimed hidden chain-of-thought; separate human review and debug-free export. (2026-08-30)
 - [OpenAI-compatible Party runtime live-validated](./issues/10-openai-compatible-runtime.md): independent per-Party providers run through a stateless server gateway with short-lived RAM credentials, exact-audience prompt recompilation, strict structured responses, sanitized audit data, and retry semantics; Venice AI's extra control plane is supported without leaking into the domain model. (2026-08-30)
+- [Prompt compiler structure locked](./issues/12-prompt-compiler.md): pure engine-owned module with sectioned fragments (persona / private state / transcript / output contract); party prompts gain visible-resources + confidentiality sections and qualitative state rendering; compiler exports `PROMPT_VERSION` so text and version cannot drift; no scenario-authored prompt fields; full compiled text not persisted. The versioned output-contract fragment is the seam for the Reaction revisit and for the [13 — Agent Mediator seat](./issues/13-agent-mediator-seat.md) demo/debug contract. (2026-08-30)
 - Persistence is local-only (IndexedDB + OPFS), no accounts, with manual export/import; privacy layer (presidio-web, identity vault, private inference) is **post-MVP**; synthetic scenario documents for MVP. (charting session, Round 3 Q5 / Round 2 Q4)
 
 ## Not yet specified
 
 <!-- fog: suspected questions not yet sharp enough to ticket -->
 
-- Prompt compiler structure: what the compiled prompt for each seat contains and how it's versioned — interfaces (01) and turn model (02) are settled; unblocked.
-- Reaction reducer design: how `Reaction` metadata maps to deterministic changes in `NegotiationState` — depends on scenario schema (06). Plus an explicit revisit: OUTLINE's signal-space `Reaction` (`perceivedRespect`/`perceivedPressure`/`topicTriggers`) vs MVP state-unit deltas — settle during prompt-compiler work.
+- Reaction reducer design: how `Reaction` metadata maps to deterministic changes in `NegotiationState` — depends on scenario schema (06). Plus an explicit revisit: OUTLINE's signal-space `Reaction` (`perceivedRespect`/`perceivedPressure`/`topicTriggers`) vs MVP state-unit deltas — ticket 12's versioned output-contract fragment is the seam; a change there bumps `PROMPT_VERSION`.
 - XState session machine shape: seven phases decided in [02](./issues/02-turn-orchestration.md); guards/actors wiring + engine lift into the app ticketed as [07](./issues/07-xstate-session-actor.md).
 - Audit record schema per model call (PLAN §10) — depends on 01; `InvocationRecord` sketched in the prototype, retry/attempt semantics decided in [02](./issues/02-turn-orchestration.md).
 - Phase 0 vertical-slice test strategy: which automated tests prove caucus visibility + reducer determinism — depends on 01, 02; both settled, unblocked.
