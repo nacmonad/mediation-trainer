@@ -5,7 +5,7 @@ export class ScriptedRuntime implements DriverRuntime {
   readonly config: ModelConfig;
   private cursor = 0;
 
-  constructor(private readonly script: readonly AgentResponse[], config: ModelConfig = { provider: "ollama", model: "scripted-mock" }) {
+  constructor(private readonly script: readonly AgentResponse[], config: ModelConfig = { provider: "openai-compatible", model: "scripted-mock" }) {
     this.config = config;
   }
 
