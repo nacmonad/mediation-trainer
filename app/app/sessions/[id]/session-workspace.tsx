@@ -18,7 +18,7 @@ type AudienceChoice = "both" | "A" | "B";
 
 const party = (id: "A" | "B", model: SessionSetupConfig["A"]): AgentSeat => ({ id, role: "party", kind: "agent", model });
 
-const defaultModel = { provider: "ollama" as const, model: "llama3.2", endpoint: "http://localhost:11434/v1/" };
+const defaultModel = { provider: "openai-compatible" as const, model: "llama3.2", endpoint: "http://localhost:11434/v1/" };
 const defaultConfig: SessionSetupConfig = { A: defaultModel, B: defaultModel };
 
 function makeRuntime(config: ModelConfig, sessionId: string, partyId: "A" | "B"): DriverRuntime {
