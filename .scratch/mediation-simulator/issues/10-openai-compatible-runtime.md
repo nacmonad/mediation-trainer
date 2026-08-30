@@ -1,7 +1,7 @@
 # 10 — OpenAI-compatible Party runtime
 
 Type: implementation
-Status: implemented — awaiting live provider validation
+Status: resolved
 Blocked by: 09 (resolved)
 
 ## Question
@@ -16,4 +16,6 @@ Implemented on `ticket/10-openai-compatible-runtime`. The Session now constructs
 
 Provider audit data includes sanitized messages, raw provider response, request id, latency, and token usage when reported. It is attached to the existing invocation trace and remains excluded from ordinary Session export. API keys are registered into a short-lived server-RAM vault before Session navigation; later provider calls carry only the opaque Session id and Party id. Keys never enter browser storage, model-call payloads, debug output, or Session exports. Missing/expired credentials fail before contacting the provider.
 
-Automated verification passes. Live validation against at least one configured provider remains before resolution.
+Live validation completed with two independently configured Venice AI Parties. The validation loop corrected the server-RAM credential handoff, adopted Venice's named strict JSON Schema wrapper and closed-book `venice_parameters`, normalized bounded bare Reaction aliases at the provider boundary, and fixed the beat frontier so a jointly addressed Party cannot be scheduled twice through volunteering. Each stateless provider call recompiles that Party's current private state and exact-audience Event Projection, preserving conversational continuity without crossing Caucus boundaries.
+
+Resolved 2026-08-30 after Scott exercised a complete live Session and judged the result a working MVP. Verification passes: 18 engine tests, ESLint, TypeScript, and the Next.js production build.
