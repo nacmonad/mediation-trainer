@@ -10,6 +10,7 @@ const seatId = z.string().min(1);
 export const sessionInputSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("OPEN_SESSION") }),
   z.object({ type: z.literal("SEND"), audience: z.array(seatId).min(1), text: z.string().min(1) }),
+  z.object({ type: z.literal("RETRY_BEAT") }),
   z.object({ type: z.literal("OPEN_CAUCUS"), partyId: seatId }),
   z.object({ type: z.literal("CLOSE_CAUCUS") }),
   z.object({ type: z.literal("DECLARE_AGREEMENT") }),
@@ -45,6 +46,7 @@ const sessionMachine = setup({
     joint_session: {
       on: {
         SEND: {},
+        RETRY_BEAT: {},
         OPEN_CAUCUS: "caucus",
         DECLARE_AGREEMENT: "agreement",
         DECLARE_IMPASS: "impasse",
@@ -54,6 +56,7 @@ const sessionMachine = setup({
     caucus: {
       on: {
         SEND: {},
+        RETRY_BEAT: {},
         CLOSE_CAUCUS: "joint_session",
         PARTY_WALKS_OUT: "walkout",
       },
@@ -123,6 +126,14 @@ export class SessionActor<T extends string> {
         const walkoutPartyId = this.driver.consumeSystemWalkout();
         if (walkoutPartyId) {
           this.actor.send({ type: "PARTY_WALKS_OUT", partyId: walkoutPartyId });
+          return;
+        }
+        break;
+      case "RETRY_BEAT":
+        await this.driver.retryPendingBeat();
+        const retryWalkoutPartyId = this.driver.consumeSystemWalkout();
+        if (retryWalkoutPartyId) {
+          this.actor.send({ type: "PARTY_WALKS_OUT", partyId: retryWalkoutPartyId });
           return;
         }
         break;

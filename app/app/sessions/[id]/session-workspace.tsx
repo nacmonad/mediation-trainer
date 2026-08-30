@@ -100,6 +100,7 @@ export function SessionWorkspace({ sessionId, scenario, resources }: { sessionId
       setPhase(actor.phase);
       setRevision((value) => value + 1);
     } catch (cause) {
+      persist();
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setPending(false);
@@ -112,6 +113,10 @@ export function SessionWorkspace({ sessionId, scenario, resources }: { sessionId
       : audience === "both" ? ["A", "B"] : [audience];
     await act({ type: "SEND", audience: selected, text: text.trim() });
     setText("");
+  }
+
+  async function retryBeat() {
+    await act({ type: "RETRY_BEAT" });
   }
 
   async function enterReview() {
@@ -195,7 +200,7 @@ export function SessionWorkspace({ sessionId, scenario, resources }: { sessionId
               <textarea id="mediator-message" className="composer" value={text} onChange={(event) => setText(event.target.value)} disabled={pending} rows={2} />
               <button className="button-primary self-stretch" disabled={pending || !text.trim()} onClick={send}>Send</button>
             </div>
-            {error && <div className="error-panel mt-3" role="alert"><p>{error}</p><button onClick={send}>Retry beat</button></div>}
+            {error && <div className="error-panel mt-3" role="alert"><p>{error}</p>{actor.driver.hasPendingBeat && <button onClick={() => void retryBeat()}>Retry beat</button>}</div>}
           </div>}
         </section>
 
@@ -215,7 +220,7 @@ export function SessionWorkspace({ sessionId, scenario, resources }: { sessionId
           {debug && <div className="debug-panel mt-6">
             <h2 className="font-semibold">Provider trace</h2>
             <p className="mt-1 text-xs leading-5 text-[var(--muted)]">Scripted provider · {actor.driver.invocations.length} calls · prompt version proto-02</p>
-            <ol className="mt-3 space-y-2 text-xs">{actor.driver.invocations.map((call, index) => <li className="rounded-lg border border-[var(--line)] p-2" key={`${call.seatId}-${index}`}>Party {call.seatId} · attempt {call.attempt} · {call.ok ? "complete" : "failed"}<br />{call.visibleEventIds.length} visible Events</li>)}</ol>
+            <ol className="mt-3 space-y-2 text-xs">{actor.driver.invocations.map((call, index) => <li className="rounded-lg border border-[var(--line)] p-2" key={`${call.seatId}-${index}`}><details><summary className="cursor-pointer font-semibold">Party {call.seatId} · attempt {call.attempt} · {call.ok ? "complete" : "failed"}</summary><div className="mt-2 space-y-1 text-[var(--muted)]"><p>{call.visibleEventIds.length} visible Events · {call.promptVersion}</p><p>Before: anger {call.stateBefore.anger}, trust {call.stateBefore.trustMediator}</p><p>After: anger {call.stateAfter.anger}, trust {call.stateAfter.trustMediator}</p>{call.response && <pre className="overflow-x-auto whitespace-pre-wrap">{JSON.stringify(call.response, null, 2)}</pre>}{call.error && <p>{call.error}</p>}</div></details></li>)}</ol>
           </div>}
         </aside>
       </div>
