@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { createSession, type AgentSeat, type MediationEvent, type SeatConfig } from "@/src/engine/domain";
 import { TurnDriver } from "@/src/engine/driver";
 import { ScriptedRuntime } from "@/src/engine/scripted-runtime";
 import { SessionActor } from "@/src/engine/session-actor";
 import type { Scenario } from "@/src/engine/scenario";
+import { loadSessionSnapshot, saveSessionSnapshot, type SessionSnapshot } from "@/src/session-storage";
 
 type Id = "A" | "B" | "Z";
 type Resource = Scenario["resources"][number];
@@ -15,10 +17,10 @@ type AudienceChoice = "both" | "A" | "B";
 
 const party = (id: "A" | "B"): AgentSeat => ({ id, role: "party", kind: "agent", model: { provider: "ollama", model: "scripted" } });
 
-function makeActor() {
+function makeActor(snapshot?: SessionSnapshot<Id> | null) {
   const seats: readonly SeatConfig[] = [party("A"), party("B"), { id: "Z", role: "mediator", kind: "human" }];
-  const session = createSession<Id>(seats);
-  return new SessionActor(new TurnDriver(session, {
+  const session = snapshot?.session ?? createSession<Id>(seats);
+  const driver = new TurnDriver(session, {
     A: new ScriptedRuntime([
       { utterance: "We want a practical resolution, but the underlying harm must be acknowledged.", reaction: { trustMediatorDelta: 4 } },
       { utterance: "Privately, certainty matters more than holding every part of our Position.", reaction: { rigidityDelta: -7 } },
@@ -29,7 +31,9 @@ function makeActor() {
       { utterance: "A durable agreement would need to address more than the headline number.", reaction: { rigidityDelta: -5 } },
       { utterance: "We can continue working from there.", reaction: { willingnessToSettleDelta: 6 } },
     ]),
-  }));
+  });
+  if (snapshot) driver.invocations.push(...snapshot.invocations);
+  return new SessionActor(driver, snapshot?.phase);
 }
 
 function eventText(event: MediationEvent<Id>): string {
@@ -58,7 +62,8 @@ function toneFor(value: number): { label: string; tone: string } {
 }
 
 export function SessionWorkspace({ sessionId, scenario, resources }: { sessionId: string; scenario: Scenario; resources: Resource[] }) {
-  const actor = useMemo(() => makeActor(), []);
+  const router = useRouter();
+  const [actor, setActor] = useState(() => makeActor());
   const [phase, setPhase] = useState(actor.phase);
   const [revision, setRevision] = useState(0);
   const [text, setText] = useState("Thank you both for being here. What would make this conversation useful today?");
@@ -67,13 +72,31 @@ export function SessionWorkspace({ sessionId, scenario, resources }: { sessionId
   const [error, setError] = useState("");
   const [debug, setDebug] = useState(false);
   const [confirm, setConfirm] = useState<"agreement" | "impasse" | null>(null);
+  const [recovered, setRecovered] = useState(false);
   void revision;
+
+  useEffect(() => {
+    const snapshot = loadSessionSnapshot<Id>(sessionId);
+    if (!snapshot || snapshot.scenarioSlug !== scenario.slug) return;
+    const timer = window.setTimeout(() => {
+      const restored = makeActor(snapshot);
+      setActor(restored);
+      setPhase(restored.phase);
+      setRecovered(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [scenario.slug, sessionId]);
+
+  function persist() {
+    saveSessionSnapshot({ version: 1, sessionId, scenarioSlug: scenario.slug, phase: actor.phase, savedAt: new Date().toISOString(), session: actor.session, invocations: [...actor.driver.invocations] });
+  }
 
   async function act(event: unknown) {
     setError("");
     setPending(true);
     try {
       await actor.dispatch(event);
+      persist();
       setPhase(actor.phase);
       setRevision((value) => value + 1);
     } catch (cause) {
@@ -91,6 +114,12 @@ export function SessionWorkspace({ sessionId, scenario, resources }: { sessionId
     setText("");
   }
 
+  async function enterReview() {
+    await actor.dispatch({ type: "ENTER_REVIEW" });
+    persist();
+    router.push(`/sessions/${sessionId}/review?scenario=${scenario.slug}`);
+  }
+
   const active = phase === "joint_session" || phase === "caucus";
   const events = actor.session.log;
   const stateA = actor.session.runtimes.A?.negotiation;
@@ -102,7 +131,7 @@ export function SessionWorkspace({ sessionId, scenario, resources }: { sessionId
         <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4">
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold">{scenario.title}</p>
-            <p className="truncate font-mono text-xs text-[var(--muted)]">Session {sessionId.slice(0, 8)} · {phase.replace("_", " ")}</p>
+            <p className="truncate font-mono text-xs text-[var(--muted)]">Session {sessionId.slice(0, 8)} · {phase.replace("_", " ")}{recovered ? " · Recovered" : ""}</p>
           </div>
           <div className="flex items-center gap-2">
             <label className="debug-toggle"><input type="checkbox" checked={debug} onChange={(event) => setDebug(event.target.checked)} /> Debug</label>
@@ -182,7 +211,7 @@ export function SessionWorkspace({ sessionId, scenario, resources }: { sessionId
               <button className="button-secondary" onClick={() => setConfirm("impasse")}>Declare impasse</button>
             </div>
           </div>}
-          {(["agreement", "impasse", "walkout"] as string[]).includes(phase) && <button className="button-primary mt-5 w-full" onClick={() => act({ type: "ENTER_REVIEW" })}>Enter review</button>}
+          {(["agreement", "impasse", "walkout"] as string[]).includes(phase) && <button className="button-primary mt-5 w-full" onClick={() => void enterReview()}>Enter review</button>}
           {debug && <div className="debug-panel mt-6">
             <h2 className="font-semibold">Provider trace</h2>
             <p className="mt-1 text-xs leading-5 text-[var(--muted)]">Scripted provider · {actor.driver.invocations.length} calls · prompt version proto-02</p>

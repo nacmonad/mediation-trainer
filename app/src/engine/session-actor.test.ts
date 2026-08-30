@@ -54,3 +54,18 @@ test("future proposer inputs are schema-validated", () => {
   assert.equal(sessionInputSchema.safeParse({ type: "PARTY_WALKS_OUT", partyId: "A" }).success, false);
   assert.equal(sessionInputSchema.safeParse({ type: "SEND", audience: [], text: "" }).success, false);
 });
+
+test("restored phase rehydrates XState without duplicating committed Events", async () => {
+  const original = makeActor();
+  await original.dispatch({ type: "OPEN_SESSION" });
+  await original.dispatch({ type: "DECLARE_IMPASS" });
+  const committedCount = original.session.log.length;
+  const restoredDriver = new TurnDriver(original.session, {});
+  const restored = new SessionActor(restoredDriver, "impasse");
+
+  assert.equal(restored.phase, "impasse");
+  assert.equal(restored.session.log.length, committedCount);
+  await restored.dispatch({ type: "ENTER_REVIEW" });
+  assert.equal(restored.phase, "review");
+  assert.equal(restored.session.log.length, committedCount);
+});

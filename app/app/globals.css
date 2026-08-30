@@ -83,6 +83,7 @@ button:active:not(:disabled), a:active { transform: translateY(1px); }
 .debug-panel { border-top: 1px solid var(--line); padding-top: 1rem; }
 .dialog-backdrop { align-items: center; background: rgba(5, 15, 14, .58); display: flex; inset: 0; justify-content: center; padding: 1rem; position: fixed; z-index: 50; }
 .confirm-dialog { background: var(--panel); border: 1px solid var(--line-strong); border-radius: 1rem; box-shadow: 0 24px 80px rgba(5, 20, 18, .24); max-width: 28rem; padding: 1.5rem; width: 100%; }
+.review-notes { background: var(--surface); border: 1px solid var(--line-strong); border-radius: .7rem; color: var(--ink); padding: .7rem; resize: vertical; width: 100%; }
 
 @keyframes pulse { 50% { opacity: .35; transform: scale(.75); } }
 
