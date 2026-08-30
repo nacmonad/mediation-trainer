@@ -42,7 +42,7 @@ A buildable MVP spec for a **mediator-training simulator**: a human practices as
 
 <!-- fog: suspected questions not yet sharp enough to ticket -->
 
-- Benchmark harness shape: headless CLI vs in-app batch mode, and the default mediator policy for scenario-benchmark cells (fixed scripted playbook / random / cheap pinned model) — filed as [14](./issues/14-benchmark-harness.md), blocked by 13.
+- Benchmark harness: headless CLI decided; still open — the default mediator policy for scenario-benchmark cells (fixed scripted playbook / random / cheap pinned model) and the run-artifact format — filed as [14](./issues/14-benchmark-harness.md), blocked by 13.
 - Reaction reducer design: how `Reaction` metadata maps to deterministic changes in `NegotiationState` — depends on scenario schema (06). Plus an explicit revisit: OUTLINE's signal-space `Reaction` (`perceivedRespect`/`perceivedPressure`/`topicTriggers`) vs MVP state-unit deltas — ticket 12's versioned output-contract fragment is the seam; a change there bumps `PROMPT_VERSION`.
 - XState session machine shape: seven phases decided in [02](./issues/02-turn-orchestration.md); guards/actors wiring + engine lift into the app ticketed as [07](./issues/07-xstate-session-actor.md).
 - Audit record schema per model call (PLAN §10) — depends on 01; `InvocationRecord` sketched in the prototype, retry/attempt semantics decided in [02](./issues/02-turn-orchestration.md).
