@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="A local-first rehearsal environment for practicing mediators with independently configured AI Parties." />
+    <meta name="theme-color" content="#f4f7f6" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#101817" media="(prefers-color-scheme: dark)" />
+    <meta property="og:title" content="Mediation Trainer" />
+    <meta property="og:description" content="Practice difficult mediation conversations. Review every turn." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="./assets/scenario-library.png" />
+    <title>Mediation Trainer</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="wordmark" href="#top" aria-label="Mediation Trainer home">Mediation Trainer</a>
+      <nav aria-label="Primary navigation">
+        <a href="#how-it-works">How it works</a>
+        <a href="#open-source">Open source</a>
+        <a class="nav-cta" href="https://github.com/nacmonad/mediation-trainer">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow">Mediator training</p>
+          <h1 id="hero-title">Practice before it matters.</h1>
+          <p class="hero-summary">Rehearse difficult mediations with independent AI Parties, private context, and an auditable Event log.</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="https://github.com/nacmonad/mediation-trainer#quick-start">Run locally</a>
+          </div>
+        </div>
+        <figure class="product-visual">
+          <img src="./assets/scenario-library.png" width="1440" height="1000" alt="Mediation Trainer showing three synthetic mediation Scenarios" />
+        </figure>
+      </section>
+
+      <section class="principles" aria-label="Product principles">
+        <p>Two independently configured Parties</p>
+        <p>Exact-audience Caucus boundaries</p>
+        <p>Local Session recovery and export</p>
+        <p>OpenAI-compatible provider choice</p>
+      </section>
+
+      <section class="process" id="how-it-works" aria-labelledby="process-title">
+        <div class="section-intro">
+          <h2 id="process-title">A mediation room, not a chatbot.</h2>
+          <p>Each Party has its own model, private facts, negotiation state, and authorized view of the Session.</p>
+        </div>
+        <ol class="process-list">
+          <li>
+            <span aria-hidden="true">01</span>
+            <div>
+              <h3>Choose a Scenario</h3>
+              <p>Start from synthetic facts, private interests, Case resources, authority limits, and deterministic rules.</p>
+            </div>
+          </li>
+          <li>
+            <span aria-hidden="true">02</span>
+            <div>
+              <h3>Configure each Party</h3>
+              <p>Use different providers and models to compare how distinct agents negotiate the same dispute.</p>
+            </div>
+          </li>
+          <li>
+            <span aria-hidden="true">03</span>
+            <div>
+              <h3>Mediate and review</h3>
+              <p>Move between joint Session and Caucus, reach an outcome, then inspect or export the Event log.</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section class="boundaries" aria-labelledby="boundaries-title">
+        <div>
+          <h2 id="boundaries-title">Private by structure.</h2>
+          <p>Every Event declares its audience. Each provider call is rebuilt from that Party's authorized Projection.</p>
+        </div>
+        <div class="boundary-grid">
+          <article>
+            <h3>Domain first</h3>
+            <p>Plain TypeScript owns Offers, Reaction reduction, Scenario rules, and the append-only Event log.</p>
+          </article>
+          <article>
+            <h3>Provider independent</h3>
+            <p>OpenAI, Venice AI, Ollama, and compatible endpoints can occupy either Party seat.</p>
+          </article>
+          <article>
+            <h3>Credentials stay ephemeral</h3>
+            <p>Keys live in short-lived server memory and never enter Session storage, diagnostics, or exports.</p>
+          </article>
+          <article>
+            <h3>Debugging stays visible</h3>
+            <p>Opt-in diagnostics expose retries, latency, token usage, sanitized payloads, and state transitions.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="open-source" id="open-source" aria-labelledby="open-source-title">
+        <div>
+          <h2 id="open-source-title">Scenarios should travel.</h2>
+          <p>The versioned Scenario format is built for community-authored exercises, portable provider choices, and future visual tooling.</p>
+        </div>
+        <div class="roadmap" aria-label="Project direction">
+          <p><strong>Now</strong><span>Live-validated mediator-training MVP</span></p>
+          <p><strong>Next</strong><span>Scenario builder and community library</span></p>
+          <p><strong>Later</strong><span>Hosted teams, managed inference, and evaluation</span></p>
+        </div>
+        <a class="button button-primary" href="https://github.com/nacmonad/mediation-trainer">GitHub</a>
+      </section>
+    </main>
+
+    <footer>
+      <p>Mediation Trainer</p>
+      <p>A live-validated MVP for mediator rehearsal.</p>
+      <a href="https://github.com/nacmonad/mediation-trainer">GitHub</a>
+    </footer>
+  </body>
+</html>
