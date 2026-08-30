@@ -3,120 +3,114 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="A local-first rehearsal environment for practicing mediators with independently configured AI Parties." />
-    <meta name="theme-color" content="#f4f7f6" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#101817" media="(prefers-color-scheme: dark)" />
-    <meta property="og:title" content="Mediation Trainer" />
-    <meta property="og:description" content="Practice difficult mediation conversations. Review every turn." />
+    <meta name="description" content="Obversa is an open-source rehearsal environment for practicing mediators with independent simulated Parties." />
+    <meta name="theme-color" content="#f2efe7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#121916" media="(prefers-color-scheme: dark)" />
+    <meta property="og:title" content="Obversa | Mediation rehearsal" />
+    <meta property="og:description" content="Rehearse difficult mediations with independent simulated Parties." />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="./assets/scenario-library.png" />
-    <title>Mediation Trainer</title>
+    <title>Obversa | Mediation rehearsal</title>
+    <link rel="icon" href="./assets/obversa-mark.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <header class="site-header">
-      <a class="wordmark" href="#top" aria-label="Mediation Trainer home">Mediation Trainer</a>
+      <a class="wordmark" href="#top" aria-label="Obversa home">
+        <img src="./assets/obversa-mark.svg" alt="" width="28" height="28" />
+        <span>Obversa</span>
+      </a>
       <nav aria-label="Primary navigation">
         <a href="#how-it-works">How it works</a>
         <a href="#open-source">Open source</a>
-        <a class="nav-cta" href="https://github.com/nacmonad/mediation-trainer">GitHub</a>
+        <a class="nav-cta" href="https://github.com/nacmonad/mediation-trainer">View source</a>
       </nav>
     </header>
 
     <main id="top">
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <p class="eyebrow">Mediator training</p>
-          <h1 id="hero-title">Practice before it matters.</h1>
-          <p class="hero-summary">Rehearse difficult mediations with independent AI Parties, private context, and an auditable Event log.</p>
+          <p class="eyebrow">Mediation rehearsal</p>
+          <h1 id="hero-title">Rehearse what cannot be scripted.</h1>
+          <p class="hero-summary">Practice difficult mediations with independent simulated Parties. Each holds its own facts, limits, and view of the Session.</p>
           <div class="hero-actions">
-            <a class="button button-primary" href="https://github.com/nacmonad/mediation-trainer#quick-start">Run locally</a>
+            <a class="button button-primary" href="https://github.com/nacmonad/mediation-trainer#quick-start">Run Obversa locally</a>
+            <a class="text-link" href="#how-it-works">See how it works <span aria-hidden="true">↓</span></a>
           </div>
+          <p class="alpha-note">Closed alpha. Use synthetic material only.</p>
         </div>
-        <figure class="product-visual">
-          <img src="./assets/scenario-library.png" width="1440" height="1000" alt="Mediation Trainer showing three synthetic mediation Scenarios" />
-        </figure>
+        <div class="hero-artifact" aria-label="Obversa Third Lens symbol">
+          <img src="./assets/obversa-mark.svg" width="390" height="390" alt="Third Lens, the Obversa working mark" />
+          <p>Two perspectives remain distinct. The process holds the room between them.</p>
+        </div>
       </section>
 
-      <section class="principles" aria-label="Product principles">
-        <p>Two independently configured Parties</p>
-        <p>Exact-audience Caucus boundaries</p>
-        <p>Local Session recovery and export</p>
-        <p>OpenAI-compatible provider choice</p>
+      <section class="principles" aria-label="Current product capabilities">
+        <p>Independent Party context</p>
+        <p>Joint Session and Caucus</p>
+        <p>Exact Event audiences</p>
+        <p>AGPL-licensed source</p>
       </section>
 
       <section class="process" id="how-it-works" aria-labelledby="process-title">
         <div class="section-intro">
-          <h2 id="process-title">A mediation room, not a chatbot.</h2>
-          <p>Each Party has its own model, private facts, negotiation state, and authorized view of the Session.</p>
+          <p class="eyebrow">What changes in the room</p>
+          <h2 id="process-title">Two Parties should be more than one chatbot wearing two name tags.</h2>
         </div>
         <ol class="process-list">
           <li>
             <span aria-hidden="true">01</span>
-            <div>
-              <h3>Choose a Scenario</h3>
-              <p>Start from synthetic facts, private interests, Case resources, authority limits, and deterministic rules.</p>
-            </div>
+            <div><h3>Choose a synthetic Scenario</h3><p>Start from shared facts, private interests, Case resources, authority limits, and deterministic rules.</p></div>
           </li>
           <li>
             <span aria-hidden="true">02</span>
-            <div>
-              <h3>Configure each Party</h3>
-              <p>Use different providers and models to compare how distinct agents negotiate the same dispute.</p>
-            </div>
+            <div><h3>Configure each Party independently</h3><p>Use Anthropic, OpenAI, Venice AI, Ollama, or another OpenAI-compatible endpoint in either seat.</p></div>
           </li>
           <li>
             <span aria-hidden="true">03</span>
-            <div>
-              <h3>Mediate and review</h3>
-              <p>Move between joint Session and Caucus, reach an outcome, then inspect or export the Event log.</p>
-            </div>
+            <div><h3>Mediate, then review</h3><p>Move between Joint Session and Caucus, reach an outcome or impasse, then inspect or export the Event log.</p></div>
           </li>
         </ol>
       </section>
 
-      <section class="boundaries" aria-labelledby="boundaries-title">
+      <section class="product-proof" aria-labelledby="proof-title">
         <div>
-          <h2 id="boundaries-title">Private by structure.</h2>
-          <p>Every Event declares its audience. Each provider call is rebuilt from that Party's authorized Projection.</p>
+          <p class="eyebrow">Available now</p>
+          <h2 id="proof-title">Start with the dispute, not the dashboard.</h2>
+          <p>Three versioned synthetic Scenarios exercise different facts, constraints, and process decisions. Private Party material remains concealed until the Scenario permits disclosure.</p>
+        </div>
+        <figure>
+          <img src="./assets/scenario-library.png" width="1440" height="1000" alt="Obversa Scenario library with three synthetic mediation exercises" />
+        </figure>
+      </section>
+
+      <section class="boundaries" aria-labelledby="boundaries-title">
+        <div class="section-intro">
+          <p class="eyebrow">Built for rehearsal, not prediction</p>
+          <h2 id="boundaries-title">The Parties are simulated. The professional judgment is yours.</h2>
         </div>
         <div class="boundary-grid">
-          <article>
-            <h3>Domain first</h3>
-            <p>Plain TypeScript owns Offers, Reaction reduction, Scenario rules, and the append-only Event log.</p>
-          </article>
-          <article>
-            <h3>Provider independent</h3>
-            <p>OpenAI, Venice AI, Ollama, and compatible endpoints can occupy either Party seat.</p>
-          </article>
-          <article>
-            <h3>Credentials stay ephemeral</h3>
-            <p>Keys live in short-lived server memory and never enter Session storage, diagnostics, or exports.</p>
-          </article>
-          <article>
-            <h3>Debugging stays visible</h3>
-            <p>Opt-in diagnostics expose retries, latency, token usage, sanitized payloads, and state transitions.</p>
-          </article>
+          <article><h3>Private by structure</h3><p>Every Event declares its audience. Each provider receives only that Party's authorized Projection.</p></article>
+          <article><h3>Provider choice stays visible</h3><p>Each Party has its own runtime, model, endpoint, and short-lived credential.</p></article>
+          <article><h3>Credentials stay ephemeral</h3><p>Keys live in server process memory and never enter Session storage, diagnostics, or exports.</p></article>
+          <article><h3>Limits stay explicit</h3><p>Obversa does not provide legal advice, predict real people, or guarantee mediation outcomes.</p></article>
         </div>
       </section>
 
       <section class="open-source" id="open-source" aria-labelledby="open-source-title">
+        <img src="./assets/obversa-mark.svg" width="88" height="88" alt="" />
         <div>
-          <h2 id="open-source-title">Scenarios should travel.</h2>
-          <p>The versioned Scenario format is built for community-authored exercises, portable provider choices, and future visual tooling.</p>
+          <p class="eyebrow">Open source by design</p>
+          <h2 id="open-source-title">Inspect the room before you enter it.</h2>
+          <p>The community application is licensed AGPL-3.0-only. Review the Scenario contract, Party boundaries, provider gateways, and deterministic domain rules in the repository.</p>
+          <a class="button button-light" href="https://github.com/nacmonad/mediation-trainer">Explore the repository</a>
         </div>
-        <div class="roadmap" aria-label="Project direction">
-          <p><strong>Now</strong><span>Live-validated mediator-training MVP</span></p>
-          <p><strong>Next</strong><span>Scenario builder and community library</span></p>
-          <p><strong>Later</strong><span>Hosted teams, managed inference, and evaluation</span></p>
-        </div>
-        <a class="button button-primary" href="https://github.com/nacmonad/mediation-trainer">GitHub</a>
       </section>
     </main>
 
     <footer>
-      <p>Mediation Trainer</p>
-      <p>A live-validated MVP for mediator rehearsal.</p>
+      <a class="wordmark" href="#top"><img src="./assets/obversa-mark.svg" alt="" width="26" height="26" /><span>Obversa</span></a>
+      <p>Rehearse what cannot be scripted.</p>
       <a href="https://github.com/nacmonad/mediation-trainer">GitHub</a>
     </footer>
   </body>

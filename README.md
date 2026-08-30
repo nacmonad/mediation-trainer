@@ -1,20 +1,26 @@
-# Mediation Trainer
+<p align="center">
+  <img src="docs/assets/obversa-mark.svg" width="88" height="88" alt="Obversa" />
+</p>
 
-Practice difficult mediation conversations against independently configured AI Parties, then review the complete Session Event log.
+# Obversa
+
+**Rehearse what cannot be scripted.**
+
+Practice difficult mediations with independent simulated Parties, then review the complete Session Event log.
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.3-14201f)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-0c625a)](https://www.typescriptlang.org/)
 [![XState](https://img.shields.io/badge/XState-v5-14201f)](https://stately.ai/docs/xstate)
 
-![The Mediation Trainer Scenario library](docs/assets/scenario-library.png)
+![The Obversa Scenario library](docs/assets/scenario-library.png)
 
-Mediation Trainer is a local-first rehearsal environment for practicing mediators. A human Mediator works with two simulated Parties, each with its own provider, model, private facts, negotiation state, and exact-audience view of the Session.
+Obversa is a local-first rehearsal environment for practicing mediators. A human Mediator works with two simulated Parties, each with its own provider, model, private facts, negotiation state, and exact-audience view of the Session.
 
 ## What works today
 
 - Three versioned synthetic Scenarios: supplier invoice, employment separation, and software implementation
 - Independent model configuration for Party A and Party B
-- OpenAI, Venice AI, Ollama, and other OpenAI-compatible endpoints
+- Anthropic, OpenAI, Venice AI, Ollama, and other OpenAI-compatible endpoints
 - Joint Session and private Caucus flows with exact Event audiences
 - Structured Offers and constrained Reaction metadata
 - Agreement, impasse, Walkout, retry, refresh recovery, review, and JSON export
@@ -44,9 +50,10 @@ Each Party can use a different provider and model.
 
 | Provider | Base URL | Notes |
 | --- | --- | --- |
-| OpenAI | `https://api.openai.com/v1/` | Enter a model available to your account. |
-| Venice AI | `https://api.venice.ai/api/v1` | Uses Venice-specific private, closed-book, structured-output controls. |
-| Ollama | `http://localhost:11434/v1/` | API key can be left blank for a local no-auth server. |
+| Anthropic | `https://api.anthropic.com/v1/` | Uses the native Messages API adapter. |
+| OpenAI | `https://api.openai.com/v1/` | Uses the OpenAI-compatible chat-completions adapter. |
+| Venice AI | `https://api.venice.ai/api/v1` | Adds Venice-specific private, closed-book, structured-output controls. |
+| Ollama | `http://localhost:11434/v1/` | An OpenAI-compatible preset; the API key may be blank for a local no-auth server. |
 | Other OpenAI-compatible | Provider-specific | The adapter appends `chat/completions`. |
 
 Provider credentials are registered in short-lived server process memory. They are never written to browser storage, included in debug records, or exported with a Session. Restarting the application clears them.
@@ -78,7 +85,7 @@ flowchart LR
 - **XState v5** owns Session phase and typed transitions.
 - **Plain TypeScript** owns the Event log, audience Projections, behavioral state, Offers, Scenario rules, and turn ordering.
 - **Zod** validates authored Scenarios, transition inputs, provider payloads, and structured Party responses.
-- **Next.js Route Handlers** provide a stateless provider gateway and the short-lived credential vault.
+- **Next.js Route Handlers** provide stateless Anthropic and OpenAI-compatible gateways plus the short-lived credential vault.
 - **Browser storage** persists committed Session snapshots locally. Provider credentials are deliberately excluded.
 
 The project vocabulary is documented in [CONTEXT.md](CONTEXT.md). The architecture and product direction live in [PLAN.md](PLAN.md) and [OUTLINE.md](OUTLINE.md).
@@ -106,12 +113,12 @@ The engine suite covers Scenario parsing, audience Projections, disclosure, Offe
 
 The proposed commercial path and one-week founding-beta scope are documented in the [paid SaaS launch strategy](docs/saas-launch-strategy.md).
 
-- Visual Scenario builder with schema validation and preview
-- Community-authored Scenario import, export, and curation
-- Optional Venice Character personas for stable voice and temperament
-- Streaming responses for faster perceived turns
-- Hosted workspaces with managed inference and private Scenario libraries
-- Evaluator workflows grounded in professional mediation standards
+- Evidence-backed Evaluator workflows with explicit professional-standard provenance
+- Research workflows for credible synthetic Scenarios derived from available cases and authoritative sources
+- Visual Scenario builder with validation, preview, and private drafts
+- Local document redaction and preparation with `presidio-web`
+- Private Scenario libraries and curated public publishing with attribution, feedback, and moderation
+- Hosted workspaces with managed inference, retention controls, and team administration
 
 ## Contributing
 
@@ -121,7 +128,7 @@ For code changes, keep the established boundary intact: XState orchestrates, whi
 
 ## Project status
 
-The mediator-training flow is a live-validated MVP. It is useful, deliberately narrow, and still under active development.
+The mediation-rehearsal flow is a live-validated MVP in closed alpha. It is useful, deliberately narrow, and still under active development. Use synthetic material only; do not submit real case files, privileged material, or confidential client information.
 
 ## License
 

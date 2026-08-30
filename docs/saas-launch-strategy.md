@@ -203,12 +203,14 @@ Do not claim that hosted inference is end-to-end encrypted merely because a prov
 
 ## Next product sequence
 
-1. Visual Scenario builder with validation, preview, and private drafts
-2. Presidio-web preparation pipeline for local redaction before upload
-3. Private user Scenario directory
-4. Curated community Scenario publishing with review and attribution
-5. Optional Venice Character personas for stable Party voice
-6. Team workspaces, retention policies, and administrative controls
+1. Separate Evaluator with evidence-backed Session findings and clear professional-standard provenance
+2. Research workflow for developing credible synthetic Scenarios from available cases and authoritative source material
+3. Visual Scenario builder with validation, preview, and private drafts
+4. `presidio-web` preparation pipeline for local redaction before upload
+5. Private user Scenario library and ownership controls
+6. Curated public Scenario publishing with attribution, practitioner feedback, reviews, ratings, curation, and moderation
+7. Optional Venice Character personas for stable Party voice
+8. Team workspaces, retention policies, and administrative controls
 
 The confidential-document release needs its own threat model. Local redaction reduces exposure but does not prove that a document is safe, and the hosted system must still address originals, derived text, model-provider retention, backups, support access, and deletion.
 
