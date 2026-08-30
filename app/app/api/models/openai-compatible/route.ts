@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 
 const requestSchema = z.object({
   config: z.object({
-    provider: z.enum(["openai-compatible", "openai", "ollama"]),
+    provider: z.enum(["openai-compatible", "openai", "venice", "ollama"]),
     model: z.string().min(1),
     endpoint: z.string().url(),
     temperature: z.number().min(0).max(2).optional(),
@@ -73,6 +73,36 @@ function parseJsonContent(content: string): unknown {
   }
 }
 
+const partyResponseJsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["utterance", "reaction"],
+  properties: {
+    utterance: { type: "string" },
+    reaction: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        angerDelta: { type: "number", minimum: -12, maximum: 12 },
+        trustMediatorDelta: { type: "number", minimum: -12, maximum: 12 },
+        trustOtherPartyDelta: { type: "number", minimum: -12, maximum: 12 },
+        willingnessToSettleDelta: { type: "number", minimum: -12, maximum: 12 },
+        rigidityDelta: { type: "number", minimum: -12, maximum: 12 },
+        fatigueDelta: { type: "number", minimum: -12, maximum: 12 },
+      },
+    },
+    offer: {
+      type: "object",
+      additionalProperties: false,
+      required: ["amount"],
+      properties: {
+        amount: { type: "number", minimum: 0 },
+        terms: { type: "string" },
+      },
+    },
+  },
+} as const;
+
 export async function POST(request: Request) {
   const input = requestSchema.safeParse(await request.json().catch(() => null));
   if (!input.success) return Response.json({ error: `invalid request: ${input.error.message}` }, { status: 400 });
@@ -90,6 +120,10 @@ export async function POST(request: Request) {
     ],
     ...(config.temperature === undefined ? {} : { temperature: config.temperature }),
     ...(config.seed === undefined ? {} : { seed: config.seed }),
+    ...(config.provider === "venice" ? {
+      venice_parameters: { include_venice_system_prompt: false },
+      response_format: { type: "json_schema", json_schema: partyResponseJsonSchema },
+    } : {}),
   };
   const started = performance.now();
   let upstream: Response;

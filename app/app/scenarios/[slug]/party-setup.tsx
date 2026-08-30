@@ -8,12 +8,16 @@ import { saveSessionSetup } from "@/src/session-storage";
 
 const providers: readonly { value: ModelConfig["provider"]; label: string }[] = [
   { value: "openai", label: "OpenAI" },
+  { value: "venice", label: "Venice AI" },
   { value: "ollama", label: "Ollama (OpenAI API)" },
   { value: "openai-compatible", label: "Other OpenAI-compatible" },
 ];
 
-const defaults: Record<"openai" | "ollama" | "openai-compatible", Pick<ModelConfig, "endpoint" | "model">> = {
+type SelectableProvider = "openai" | "venice" | "ollama" | "openai-compatible";
+
+const defaults: Record<SelectableProvider, Pick<ModelConfig, "endpoint" | "model">> = {
   openai: { endpoint: "https://api.openai.com/v1/", model: "gpt-5.6-luna" },
+  venice: { endpoint: "https://api.venice.ai/api/v1", model: "" },
   ollama: { endpoint: "http://localhost:11434/v1/", model: "llama3.2" },
   "openai-compatible": { endpoint: "https://openrouter.ai/api/v1/", model: "" },
 };
@@ -27,7 +31,7 @@ function SeatFields({ party, config, apiKey, setApiKey, setConfig }: { party: "A
         <label className="field">
           <span>Provider</span>
           <select value={config.provider} onChange={(event) => {
-            const provider = event.target.value as "openai" | "ollama" | "openai-compatible";
+            const provider = event.target.value as SelectableProvider;
             setConfig({ ...config, provider, ...defaults[provider] });
           }}>
             {providers.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}

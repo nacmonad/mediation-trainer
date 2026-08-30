@@ -95,6 +95,40 @@ test("gateway canonicalizes Venice-style bare Reaction keys into bounded deltas"
   }
 });
 
+test("Venice requests use its native strict structured-output controls", async () => {
+  const sessionId = "00000000-0000-4000-8000-000000000014";
+  registerCredentials(sessionId, { A: "test-key", B: "" });
+  const originalFetch = globalThis.fetch;
+  let requestBody: Record<string, unknown> = {};
+  globalThis.fetch = async (_input, init) => {
+    requestBody = JSON.parse(String(init?.body));
+    return Response.json({
+      choices: [{ message: { content: JSON.stringify({ utterance: "Ready.", reaction: {} }) } }],
+    });
+  };
+  try {
+    const response = await POST(new Request("http://localhost/api/models/openai-compatible", {
+      method: "POST",
+      body: JSON.stringify({
+        config: { provider: "venice", model: "z-ai-glm-5-3-flash", endpoint: "https://api.venice.ai/api/v1" },
+        sessionId,
+        partyId: "A",
+        prompt: { system: "Return JSON.", user: "Respond." },
+      }),
+    }));
+    assert.equal(response.status, 200);
+    assert.deepEqual(requestBody.venice_parameters, { include_venice_system_prompt: false });
+    assert.equal((requestBody.response_format as { type?: string }).type, "json_schema");
+    assert.deepEqual(
+      (requestBody.response_format as { json_schema?: { required?: string[] } }).json_schema?.required,
+      ["utterance", "reaction"],
+    );
+  } finally {
+    forgetCredentials(sessionId);
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("gateway rejects bare Reaction values that look like absolute state", async () => {
   const sessionId = "00000000-0000-4000-8000-000000000013";
   registerCredentials(sessionId, { A: "test-key", B: "" });
