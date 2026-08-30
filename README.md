@@ -104,6 +104,8 @@ The engine suite covers Scenario parsing, audience Projections, disclosure, Offe
 
 ## Roadmap
 
+The proposed commercial path and one-week founding-beta scope are documented in the [paid SaaS launch strategy](docs/saas-launch-strategy.md).
+
 - Visual Scenario builder with schema validation and preview
 - Community-authored Scenario import, export, and curation
 - Optional Venice Character personas for stable voice and temperament
@@ -123,4 +125,6 @@ The mediator-training flow is a live-validated MVP. It is useful, deliberately n
 
 ## License
 
-No license has been selected yet. Until one is added, copyright remains with the repository owner and normal open-source reuse rights are not granted.
+This project is licensed under the [GNU Affero General Public License v3.0 only](LICENSE) (`AGPL-3.0-only`).
+
+If you modify the software and make it available for users to interact with over a network, you must offer those users the corresponding source code for that running version under the same license. See the full license text for the complete terms.

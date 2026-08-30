@@ -84,7 +84,7 @@ export function PartySetup({ scenarioSlug }: { scenarioSlug: string }) {
   return (
     <aside className="self-start rounded-2xl border border-[var(--line-strong)] bg-[var(--panel)] p-6 shadow-[0_18px_50px_rgba(15,45,42,.08)] lg:sticky lg:top-7">
       <h2 className="text-2xl font-semibold tracking-tight">Configure Parties</h2>
-      <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Provider credentials stay in browser memory by default.</p>
+      <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Provider credentials are sent to this server and held temporarily in process memory. They are not saved with the Session or included in exports.</p>
       <div className="mt-6 space-y-6">
         <SeatFields party="A" config={configA} apiKey={apiKeyA} setApiKey={setApiKeyA} setConfig={setConfigA} />
         <SeatFields party="B" config={configB} apiKey={apiKeyB} setApiKey={setApiKeyB} setConfig={setConfigB} />
