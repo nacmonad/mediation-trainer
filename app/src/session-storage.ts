@@ -2,13 +2,17 @@ import type { InvocationAttempt, Phase } from "@/src/engine/driver";
 import type { Session } from "@/src/engine/domain";
 import type { ModelConfig } from "@/src/engine/domain";
 
-export type SessionSetupConfig = { A: ModelConfig; B: ModelConfig };
+export type SessionSetupConfig = { A: ModelConfig; B: ModelConfig; Z?: ModelConfig };
 
 /** Sessions saved before the Ollama provider was folded into "openai-compatible". */
 function migrateLegacyProviders(config: SessionSetupConfig): SessionSetupConfig {
   const fix = (seat: ModelConfig): ModelConfig =>
     (seat.provider as string) === "ollama" ? { ...seat, provider: "openai-compatible" } : seat;
-  return { A: fix(config.A), B: fix(config.B) };
+  return {
+    A: fix(config.A),
+    B: fix(config.B),
+    ...(config.Z ? { Z: fix(config.Z) } : {}),
+  };
 }
 
 export type SessionSnapshot<T extends string = string> = {
@@ -31,7 +35,9 @@ export function saveSessionSetup(sessionId: string, config: SessionSetupConfig):
 export function loadSessionSetup(sessionId: string): SessionSetupConfig | null {
   try {
     const value = JSON.parse(sessionStorage.getItem(configKey(sessionId)) ?? "null") as SessionSetupConfig | null;
-    return value?.A?.provider && value?.B?.provider ? migrateLegacyProviders(value) : null;
+    return value?.A?.provider && value?.B?.provider
+      ? migrateLegacyProviders(value)
+      : null;
   } catch {
     return null;
   }

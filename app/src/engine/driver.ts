@@ -76,6 +76,25 @@ export interface DriverRuntime {
   }): Promise<AgentResponse>;
 }
 
+/** The agent Mediator's addressing choice: both parties or one of them. */
+export type MediatorAddressing<T extends string> = "both" | Exclude<T, "SYSTEM">;
+
+export interface MediatorTurn<T extends string> {
+  /** May be "" (chose silence); no Reaction channel exists for the mediator. */
+  utterance: string;
+  audience: MediatorAddressing<T>;
+}
+
+export interface MediatorRuntime<T extends string> {
+  readonly config: ModelConfig;
+  readonly lastCall?: RuntimeCallAudit;
+  respond(input: {
+    projection: readonly MediationEvent[];
+    phase: Phase;
+    caucusWith: T | null;
+  }): Promise<MediatorTurn<T>>;
+}
+
 export interface RuntimeCallAudit {
   requestId?: string;
   latencyMs: number;
@@ -144,9 +163,12 @@ export interface InvocationAttempt<T extends string> {
   mandatory: boolean;
   promptVersion: string;
   visibleEventIds: string[];
-  stateBefore: NegotiationState;
-  stateAfter: NegotiationState;
+  /** Party calls only: the mediator seat has no negotiation state. */
+  stateBefore?: NegotiationState;
+  stateAfter?: NegotiationState;
   response?: AgentResponse;
+  /** Mediator-agent calls only: what Z said and to whom. */
+  mediatorResponse?: MediatorTurn<T>;
   error?: string;
   provider?: RuntimeCallAudit;
 }
@@ -176,6 +198,8 @@ export class TurnDriver<T extends string> {
   private readonly models: Partial<Record<T, DriverRuntime>>;
   private readonly rules: readonly ScenarioRule<T>[];
   private readonly promptVersion: string;
+  /** Present only when the Mediator seat runs as an agent (ticket 13). */
+  mediatorRuntime?: MediatorRuntime<T>;
 
   constructor(
     session: Session<T>,
@@ -257,6 +281,56 @@ export class TurnDriver<T extends string> {
       (p) => audience.includes(p) && this.canSpeakNow(p)
     );
     await this.runBeats(addressed);
+    return this;
+  }
+
+  /**
+   * Agent Mediator step (ticket 13): one model call for Z, then the model's
+   * utterance enters the log through the same send() seam a human Z uses —
+   * addressing is the model's choice, every transition stays human-issued.
+   * Silence is a legal choice; a beat runs only if Z actually spoke.
+   * Single attempt, no auto-retry: the human simply asks again.
+   */
+  async agentMediatorStep(): Promise<this> {
+    const z = this.requireMediator();
+    this.requirePhaseIn(["joint_session"], "agentMediatorStep");
+    const model = this.mediatorRuntime;
+    if (!model) throw new TurnError("seat", "the Mediator seat is not configured as an agent");
+    const projection = projectFor(this.session, z);
+    const visibleEventIds = projection.map((e) => e.id);
+    const attempt = this.invocations.filter((call) => call.seatId === z).length + 1;
+    try {
+      const turn = await model.respond({ projection, phase: this.phase, caucusWith: this.session.caucusWith });
+      this.invocations.push({
+        seatId: z,
+        attempt,
+        ok: true,
+        mandatory: false,
+        promptVersion: this.promptVersion,
+        visibleEventIds,
+        mediatorResponse: turn,
+        provider: model.lastCall,
+      });
+      if (!turn.utterance.trim()) return this;
+      const audience = turn.audience === "both"
+        ? jointAudience(this.session)
+        : [turn.audience as T];
+      await this.send(audience, turn.utterance);
+    } catch (e) {
+      if (!(e instanceof TurnError)) {
+        this.invocations.push({
+          seatId: z,
+          attempt,
+          ok: false,
+          mandatory: false,
+          promptVersion: this.promptVersion,
+          visibleEventIds,
+          error: e instanceof Error ? e.message : String(e),
+          provider: model.lastCall,
+        });
+      }
+      throw e;
+    }
     return this;
   }
 

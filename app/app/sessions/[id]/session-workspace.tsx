@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { createSession, type AgentSeat, type MediationEvent, type ModelConfig, type NegotiationState, type SeatConfig } from "@/src/engine/domain";
 import { AnthropicRuntime } from "@/src/engine/anthropic-runtime";
 import { TurnDriver, type DriverRuntime } from "@/src/engine/driver";
+import { MediatorRuntime } from "@/src/engine/mediator-runtime";
 import { OpenAICompatibleRuntime } from "@/src/engine/openai-compatible-runtime";
 import { SessionActor } from "@/src/engine/session-actor";
 import type { Scenario } from "@/src/engine/scenario";
@@ -32,7 +33,9 @@ function makeActor(scenario: Scenario, sessionId: string, snapshot?: SessionSnap
   const seats: readonly SeatConfig[] = [
     party("A", setup.A),
     party("B", setup.B),
-    { id: "Z", role: "mediator", kind: "human" },
+    setup.Z
+      ? { id: "Z", role: "mediator", kind: "agent", model: setup.Z }
+      : { id: "Z", role: "mediator", kind: "human" },
   ];
   const initialStates = Object.fromEntries((["A", "B"] as const).map((id) => {
     const authored = scenario.parties[id].initialState;
@@ -75,6 +78,7 @@ function makeActor(scenario: Scenario, sessionId: string, snapshot?: SessionSnap
     A: makeRuntime(setup.A, sessionId, "A", scenarioView),
     B: makeRuntime(setup.B, sessionId, "B", scenarioView),
   });
+  if (setup.Z) driver.mediatorRuntime = new MediatorRuntime(setup.Z, sessionId, scenarioView);
   if (snapshot) driver.invocations.push(...snapshot.invocations);
   return new SessionActor(driver, snapshot?.phase);
 }
@@ -176,6 +180,7 @@ export function SessionWorkspace({ sessionId, scenario, resources }: { sessionId
   }
 
   const active = phase === "joint_session" || phase === "caucus";
+  const zAgent = Boolean(setupConfig.Z);
   const events = actor.session.log;
   const stateA = actor.session.runtimes.A?.negotiation;
   const stateB = actor.session.runtimes.B?.negotiation;
@@ -236,6 +241,7 @@ export function SessionWorkspace({ sessionId, scenario, resources }: { sessionId
           </div>
 
           {active && <div className="border-t border-[var(--line)] bg-[var(--surface)] p-3 sm:p-4">
+            {zAgent && phase === "joint_session" && <button className="button-secondary mb-2 w-full" disabled={pending} onClick={() => act({ type: "AGENT_MEDIATOR_TURN" })}>{pending ? "Mediator is considering…" : "Let the agent Mediator speak"}</button>}
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <label className="flex items-center gap-2 text-sm font-semibold">Audience
                 <select className="audience-select" value={phase === "caucus" ? actor.session.caucusWith ?? "A" : audience} disabled={phase === "caucus"} onChange={(event) => setAudience(event.target.value as AudienceChoice)}>
@@ -269,8 +275,8 @@ export function SessionWorkspace({ sessionId, scenario, resources }: { sessionId
           {(["agreement", "impasse", "walkout"] as string[]).includes(phase) && <button className="button-primary mt-5 w-full" onClick={() => void enterReview()}>Enter review</button>}
           {debug && <div className="debug-panel mt-6">
             <h2 className="font-semibold">Provider trace</h2>
-            <p className="mt-1 text-xs leading-5 text-[var(--muted)]">A: {setupConfig.A.provider}/{setupConfig.A.model}<br />B: {setupConfig.B.provider}/{setupConfig.B.model}<br />{actor.driver.invocations.length} calls · prompt version {actor.driver.invocations[0]?.promptVersion ?? PROMPT_VERSION}</p>
-            <ol className="mt-3 space-y-2 text-xs">{actor.driver.invocations.map((call, index) => <li className="rounded-lg border border-[var(--line)] p-2" key={`${call.seatId}-${index}`}><details><summary className="cursor-pointer font-semibold">Party {call.seatId} · attempt {call.attempt} · {call.ok ? "complete" : "failed"}</summary><div className="mt-2 space-y-1 text-[var(--muted)]"><p>{call.visibleEventIds.length} visible Events · {call.promptVersion}</p>{call.provider && <p>{call.provider.latencyMs} ms · request {call.provider.requestId ?? "unreported"} · {call.provider.tokenUsage?.total ?? "?"} tokens</p>}<p>Before: anger {call.stateBefore.anger}, trust {call.stateBefore.trustMediator}</p><p>After: anger {call.stateAfter.anger}, trust {call.stateAfter.trustMediator}</p>{call.provider && <details><summary>Sanitized network payload</summary><pre className="overflow-x-auto whitespace-pre-wrap">{JSON.stringify({ request: call.provider.request, response: call.provider.response }, null, 2)}</pre></details>}{call.response && <pre className="overflow-x-auto whitespace-pre-wrap">{JSON.stringify(call.response, null, 2)}</pre>}{call.error && <p>{call.error}</p>}</div></details></li>)}</ol>
+            <p className="mt-1 text-xs leading-5 text-[var(--muted)]">A: {setupConfig.A.provider}/{setupConfig.A.model}<br />B: {setupConfig.B.provider}/{setupConfig.B.model}{setupConfig.Z ? <><br />Z (mediator): {setupConfig.Z.provider}/{setupConfig.Z.model}</> : null}<br />{actor.driver.invocations.length} calls · prompt version {actor.driver.invocations[0]?.promptVersion ?? PROMPT_VERSION}</p>
+            <ol className="mt-3 space-y-2 text-xs">{actor.driver.invocations.map((call, index) => <li className="rounded-lg border border-[var(--line)] p-2" key={`${call.seatId}-${index}`}><details><summary className="cursor-pointer font-semibold">{call.seatId === "Z" ? "Mediator" : `Party ${call.seatId}`} · attempt {call.attempt} · {call.ok ? "complete" : "failed"}</summary><div className="mt-2 space-y-1 text-[var(--muted)]"><p>{call.visibleEventIds.length} visible Events · {call.promptVersion}</p>{call.provider && <p>{call.provider.latencyMs} ms · request {call.provider.requestId ?? "unreported"} · {call.provider.tokenUsage?.total ?? "?"} tokens</p>}{call.stateBefore && <p>Before: anger {call.stateBefore.anger}, trust {call.stateBefore.trustMediator}</p>}{call.stateAfter && <p>After: anger {call.stateAfter.anger}, trust {call.stateAfter.trustMediator}</p>}{call.provider && <details><summary>Sanitized network payload</summary><pre className="overflow-x-auto whitespace-pre-wrap">{JSON.stringify({ request: call.provider.request, response: call.provider.response }, null, 2)}</pre></details>}{call.mediatorResponse && <pre className="overflow-x-auto whitespace-pre-wrap">{JSON.stringify(call.mediatorResponse, null, 2)}</pre>}{call.response && <pre className="overflow-x-auto whitespace-pre-wrap">{JSON.stringify(call.response, null, 2)}</pre>}{call.error && <p>{call.error}</p>}</div></details></li>)}</ol>
           </div>}
         </aside>
       </div>

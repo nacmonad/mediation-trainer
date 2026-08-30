@@ -118,3 +118,69 @@ test("addressing both Parties considers each Party only once in the beat", async
     ["A", "B"],
   );
 });
+
+test("the agent Mediator speaks through the dispatch seam and runs the Party beat", async () => {
+  const mediator = {
+    config: { provider: "openai-compatible" as const, model: "mediator-z" },
+    async respond() {
+      return { utterance: "What would a fair split look like?", audience: "both" as const };
+    },
+  };
+  const session = createSession<Id>([party("A"), party("B"), { id: "Z", role: "mediator", kind: "agent", model: mediator.config }]);
+  const driver = new TurnDriver(session, {
+    A: new ScriptedRuntime([{ utterance: "Half.", reaction: {} }]),
+    B: new ScriptedRuntime([{ utterance: "", reaction: {} }]),
+  });
+  driver.mediatorRuntime = mediator;
+  const actor = new SessionActor(driver);
+  await actor.dispatch({ type: "OPEN_SESSION" });
+  await actor.dispatch({ type: "AGENT_MEDIATOR_TURN" });
+
+  const zSpeech = actor.session.log.filter((event) => event.sender === "Z");
+  assert.equal(zSpeech.length, 1);
+  assert.equal(actor.session.log.some((event) => event.sender === "A"), true);
+  assert.equal(actor.phase, "joint_session");
+  const zCall = actor.driver.invocations.filter((call) => call.seatId === "Z").at(-1);
+  assert.equal(zCall?.seatId, "Z");
+  assert.equal(zCall?.ok, true);
+  assert.deepEqual(zCall?.mediatorResponse, { utterance: "What would a fair split look like?", audience: "both" });
+});
+
+test("agent Mediator silence is legal and runs no Party beat", async () => {
+  let partyCalls = 0;
+  const mediator = {
+    config: { provider: "openai-compatible" as const, model: "mediator-z" },
+    async respond() {
+      return { utterance: "", audience: "both" as const };
+    },
+  };
+  const session = createSession<Id>([party("A"), party("B"), { id: "Z", role: "mediator", kind: "agent", model: mediator.config }]);
+  const driver = new TurnDriver(session, {
+    A: { config: { provider: "openai-compatible", model: "a" }, async respond() { partyCalls += 1; return { utterance: "", reaction: {} }; } },
+  });
+  driver.mediatorRuntime = mediator;
+  const actor = new SessionActor(driver);
+  await actor.dispatch({ type: "OPEN_SESSION" });
+  await actor.dispatch({ type: "AGENT_MEDIATOR_TURN" });
+
+  assert.equal(actor.session.log.filter((event) => event.sender === "Z").length, 0);
+  assert.equal(partyCalls, 0);
+  assert.equal(actor.driver.invocations.at(-1)?.ok, true);
+});
+
+test("AGENT_MEDIATOR_TURN is schema-valid and caucus is rejected for the agent seat", async () => {
+  assert.equal(sessionInputSchema.safeParse({ type: "AGENT_MEDIATOR_TURN" }).success, true);
+  const mediator = {
+    config: { provider: "openai-compatible" as const, model: "mediator-z" },
+    async respond() {
+      return { utterance: "We should talk.", audience: "both" as const };
+    },
+  };
+  const session = createSession<Id>([party("A"), party("B"), { id: "Z", role: "mediator", kind: "agent", model: mediator.config }]);
+  const driver = new TurnDriver(session, {});
+  driver.mediatorRuntime = mediator;
+  const actor = new SessionActor(driver);
+  await actor.dispatch({ type: "OPEN_SESSION" });
+  await actor.dispatch({ type: "OPEN_CAUCUS", partyId: "A" });
+  await assert.rejects(actor.dispatch({ type: "AGENT_MEDIATOR_TURN" }), /agentMediatorStep/);
+});

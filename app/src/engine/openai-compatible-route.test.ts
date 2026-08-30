@@ -169,3 +169,93 @@ test("gateway rejects bare Reaction values that look like absolute state", async
     globalThis.fetch = originalFetch;
   }
 });
+
+test("mediator contract (Party Z) parses the mediator response shape", async () => {
+  const sessionId = "00000000-0000-4000-8000-000000000015";
+  registerCredentials(sessionId, { A: "", B: "", Z: "z-key" });
+  const originalFetch = globalThis.fetch;
+  let authorization = "";
+  globalThis.fetch = async (_input, init) => {
+    authorization = new Headers(init?.headers).get("authorization") ?? "";
+    return Response.json({
+      choices: [{ message: { content: "```json\n{\"utterance\":\"Let's take a short break.\",\"audience\":\"both\"}\n```" } }],
+    });
+  };
+  try {
+    const response = await POST(new Request("http://localhost/api/models/openai-compatible", {
+      method: "POST",
+      body: JSON.stringify({
+        config: { provider: "openai-compatible", model: "model-z", endpoint: "https://models.example/v1/" },
+        sessionId,
+        partyId: "Z",
+        contract: "mediator",
+        prompt: { system: "You are the Mediator.", user: "Transcript follows." },
+      }),
+    }));
+    assert.equal(response.status, 200);
+    assert.equal(authorization, "Bearer z-key");
+    const body = await response.json();
+    assert.deepEqual(body.response, { utterance: "Let's take a short break.", audience: "both" });
+  } finally {
+    forgetCredentials(sessionId);
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("mediator contract rejects Party-shaped responses and Party ids on Z calls", async () => {
+  const sessionId = "00000000-0000-4000-8000-000000000016";
+  registerCredentials(sessionId, { A: "", B: "", Z: "z-key" });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({
+    choices: [{ message: { content: JSON.stringify({ utterance: "No.", reaction: {} }) } }],
+  });
+  try {
+    const response = await POST(new Request("http://localhost/api/models/openai-compatible", {
+      method: "POST",
+      body: JSON.stringify({
+        config: { provider: "openai-compatible", model: "model-z", endpoint: "https://models.example/v1/" },
+        sessionId,
+        partyId: "Z",
+        contract: "mediator",
+        prompt: { system: "You are the Mediator.", user: "Transcript." },
+      }),
+    }));
+    assert.equal(response.status, 422);
+  } finally {
+    forgetCredentials(sessionId);
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Venice mediator calls keep venice_parameters but skip Party structured output", async () => {
+  const sessionId = "00000000-0000-4000-8000-000000000017";
+  registerCredentials(sessionId, { A: "", B: "", Z: "z-key" });
+  const originalFetch = globalThis.fetch;
+  let requestBody: Record<string, unknown> = {};
+  globalThis.fetch = async (_input, init) => {
+    requestBody = JSON.parse(String(init?.body));
+    return Response.json({
+      choices: [{ message: { content: JSON.stringify({ utterance: "Noted.", audience: "A" }) } }],
+    });
+  };
+  try {
+    const response = await POST(new Request("http://localhost/api/models/openai-compatible", {
+      method: "POST",
+      body: JSON.stringify({
+        config: { provider: "venice", model: "z-ai-glm-5-3-flash", endpoint: "https://api.venice.ai/api/v1" },
+        sessionId,
+        partyId: "Z",
+        contract: "mediator",
+        prompt: { system: "You are the Mediator.", user: "Transcript." },
+      }),
+    }));
+    assert.equal(response.status, 200);
+    assert.ok(requestBody.venice_parameters);
+    assert.equal(requestBody.response_format, undefined);
+    const body = await response.json();
+    assert.deepEqual(body.response, { utterance: "Noted.", audience: "A" });
+  } finally {
+    forgetCredentials(sessionId);
+    globalThis.fetch = originalFetch;
+  }
+});

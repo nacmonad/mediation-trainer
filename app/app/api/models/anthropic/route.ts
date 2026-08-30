@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { readCredential } from "@/src/server-credential-vault";
 import { agentResponseSchema, parseJsonContent } from "@/src/engine/party-response";
+import { mediatorResponseSchema } from "@/src/engine/mediator-response";
 
 export const runtime = "nodejs";
 
@@ -14,7 +15,8 @@ const requestSchema = z.object({
     temperature: z.number().min(0).max(1).optional(),
   }).strict(),
   sessionId: z.string().uuid(),
-  partyId: z.enum(["A", "B"]),
+  partyId: z.enum(["A", "B", "Z"]),
+  contract: z.enum(["party", "mediator"]).optional(),
   prompt: z.object({ system: z.string().min(1), user: z.string().min(1) }).strict(),
 }).strict();
 
@@ -41,7 +43,7 @@ export async function POST(request: Request) {
   const input = requestSchema.safeParse(await request.json().catch(() => null));
   if (!input.success) return Response.json({ error: `invalid request: ${input.error.message}` }, { status: 400 });
 
-  const { config, sessionId, partyId, prompt } = input.data;
+  const { config, sessionId, partyId, contract = "party", prompt } = input.data;
   const apiKey = readCredential(sessionId, partyId);
   if (apiKey === undefined) {
     return Response.json({ error: "Provider credential is unavailable. Return to Scenario setup and begin a new Session." }, { status: 401 });
@@ -86,15 +88,19 @@ export async function POST(request: Request) {
     .join("");
   if (!content) return Response.json({ error: "provider returned an empty assistant message" }, { status: 502 });
 
-  let agentResponse: z.infer<typeof agentResponseSchema>;
+  let structuredResponse: z.infer<typeof agentResponseSchema> | z.infer<typeof mediatorResponseSchema>;
   try {
-    agentResponse = agentResponseSchema.parse(parseJsonContent(content));
+    structuredResponse = contract === "mediator"
+      ? mediatorResponseSchema.parse(parseJsonContent(content))
+      : agentResponseSchema.parse(parseJsonContent(content));
   } catch (cause) {
-    return Response.json({ error: `invalid structured Party response: ${cause instanceof Error ? cause.message : String(cause)}` }, { status: 422 });
+    return Response.json({ error: contract === "mediator"
+      ? `invalid structured Mediator response: ${cause instanceof Error ? cause.message : String(cause)}`
+      : `invalid structured Party response: ${cause instanceof Error ? cause.message : String(cause)}` }, { status: 422 });
   }
 
   return Response.json({
-    response: agentResponse,
+    response: structuredResponse,
     audit: {
       requestId: parsedUpstream.data.id,
       latencyMs: Math.round(performance.now() - started),

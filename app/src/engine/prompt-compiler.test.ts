@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { initialNegotiationState, type MediationEvent, type PartyRuntime } from "./domain";
-import { PROMPT_VERSION, compilePartyPrompt, renderPartyOutputContract, renderQualitativeState, type PartyPromptInput, type ScenarioPromptView } from "./prompt-compiler";
+import { initialNegotiationState, type PartyRuntime } from "./domain";
+import { PROMPT_VERSION, compileMediatorPrompt, compilePartyPrompt, renderMediatorOutputContract, renderPartyOutputContract, type PartyPromptInput, type ScenarioPromptView } from "./prompt-compiler";
 
 const runtime: PartyRuntime = {
   seatId: "A",
@@ -75,4 +75,34 @@ test("the output-contract fragment names the exact Reaction keys and bounds", ()
   assert.match(contract, /angerDelta/);
   assert.match(contract, /-12 and 12/);
   assert.match(contract, /"amount": number/);
+});
+
+test("mediator prompt is impartial, Z-gated on documents, and carries the mediator contract", () => {
+  const prompt = compileMediatorPrompt({ projection: [], scenario, phase: "joint_session", caucusWith: null });
+  assert.match(prompt.system, /You are the Mediator/);
+  assert.match(prompt.system, /impartial/);
+  assert.match(prompt.system, /self-determination/);
+  assert.match(prompt.system, /never disclose it to the other party/);
+  assert.match(prompt.system, /"audience": "both" \| "A" \| "B"/);
+  assert.match(prompt.system, /may stay silent/);
+  assert.doesNotMatch(prompt.system, /reaction/);
+  assert.match(prompt.user, /Facts known to everyone/);
+  assert.match(prompt.user, /Invoice ledger/);
+  assert.match(prompt.user, /performance review/);
+  assert.match(prompt.user, /joint session is in progress/);
+  assert.match(prompt.user, /return JSON only/);
+});
+
+test("mediator prompt renders caucus context and never leaks party Reaction state", () => {
+  const prompt = compileMediatorPrompt({ projection, scenario, phase: "caucus", caucusWith: "A" });
+  assert.match(prompt.user, /private caucus with Party A/);
+  assert.doesNotMatch(prompt.user, /Needs payment this month/);
+  assert.doesNotMatch(prompt.user, /angerDelta/);
+});
+
+test("the mediator output-contract fragment allows silence and forbids transitions", () => {
+  const contract = renderMediatorOutputContract();
+  assert.match(contract, /"utterance": "\.\.\."|"utterance":""/);
+  assert.match(contract, /may stay silent/);
+  assert.match(contract, /cannot caucus, offer, or end the session/);
 });
