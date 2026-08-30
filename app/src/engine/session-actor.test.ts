@@ -11,7 +11,7 @@ const party = (id: "A" | "B"): AgentSeat => ({
   id,
   role: "party",
   kind: "agent",
-  model: { provider: "ollama", model: "scripted" },
+  model: { provider: "openai-compatible", model: "scripted" },
 });
 const seats: readonly SeatConfig[] = [party("A"), party("B"), { id: "Z", role: "mediator", kind: "human" }];
 
@@ -73,7 +73,7 @@ test("restored phase rehydrates XState without duplicating committed Events", as
 test("manual retry resumes the failed Party call without duplicating the Mediator Event", async () => {
   let calls = 0;
   const flaky: DriverRuntime = {
-    config: { provider: "ollama", model: "flaky" },
+    config: { provider: "openai-compatible", model: "flaky" },
     async respond() {
       calls += 1;
       if (calls <= 2) throw new TurnError("transport", "temporary outage");
@@ -98,7 +98,7 @@ test("manual retry resumes the failed Party call without duplicating the Mediato
 test("addressing both Parties considers each Party only once in the beat", async () => {
   const calls = { A: 0, B: 0 };
   const runtime = (partyId: "A" | "B"): DriverRuntime => ({
-    config: { provider: "ollama", model: `party-${partyId}` },
+    config: { provider: "openai-compatible", model: `party-${partyId}` },
     async respond() {
       calls[partyId] += 1;
       return { utterance: `${partyId} responds.`, reaction: {} };

@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 
 const requestSchema = z.object({
   config: z.object({
-    provider: z.enum(["openai-compatible", "openai", "venice", "ollama"]),
+    provider: z.enum(["openai-compatible", "openai", "venice"]),
     model: z.string().min(1),
     endpoint: z.string().url(),
     temperature: z.number().min(0).max(2).optional(),
