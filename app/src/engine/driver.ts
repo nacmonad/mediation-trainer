@@ -327,7 +327,9 @@ export class TurnDriver<T extends string> {
 
   private async runConsiderations(initial: Consideration<T>[]): Promise<void> {
     const frontier = [...initial];
-    const volunteered = new Set<T>(); // decision 5: one consideration per party per beat
+    // Addressed Parties are already scheduled in this beat and must not be
+    // scheduled again by the volunteering cascade.
+    const volunteered = new Set<T>(initial.map((consideration) => consideration.partyId));
     const forcedFired = new Set<string>();
 
     while (frontier.length) {
