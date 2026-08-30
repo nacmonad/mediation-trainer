@@ -78,6 +78,8 @@ function eventText(event: MediationEvent<Id>): string {
   if (payload.type === "session_opened") return "The joint Session has opened.";
   if (payload.type === "caucus_begin") return `Caucus with Party ${String(payload.party)} begins.`;
   if (payload.type === "caucus_end") return `Caucus with Party ${String(payload.party)} ends.`;
+  if (payload.type === "declared_agreement") return "Agreement Achieved 🎆";
+  if (payload.type === "declared_impasse") return "Impasse Hit ⛰️";
   if (payload.type === "session_ended") return `Session ended: ${String(payload.outcome)}.`;
   if (event.kind === "offer" && typeof payload.amount === "number") return `Offer: $${payload.amount.toLocaleString()}`;
   return event.kind.replace("_", " ");
