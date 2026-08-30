@@ -16,6 +16,7 @@ A buildable MVP spec for a **mediator-training simulator**: a human practices as
 - Library selections (from OUTLINE.md, restated): **XState v5** owns session orchestration as a session actor with child actors; behavioral/negotiation state stays in plain TypeScript domain objects (never FSM states). **Vercel AI SDK** sits underneath the thin `ModelRuntime` interface (replaceable, never leaked into domain types); `@statelyai/agent` excluded as alpha. **Zod** for schemas/structured output. No LangChain/LangGraph.
 - Issue tracker: local markdown (`.scratch/mediation-simulator/`).
 - Current production lift: [09 — Mediator Session UX](./issues/09-session-ux.md) is complete; the Scenario boundary and Session actor now drive the four-view mediator flow.
+- Current provider integration: [10 — OpenAI-compatible Party runtime](./issues/10-openai-compatible-runtime.md) is implemented and awaiting live-provider validation.
 
 ## Decisions so far
 

@@ -4,39 +4,70 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { createSession, type AgentSeat, type MediationEvent, type SeatConfig } from "@/src/engine/domain";
+import { createSession, type AgentSeat, type MediationEvent, type NegotiationState, type SeatConfig } from "@/src/engine/domain";
 import { TurnDriver } from "@/src/engine/driver";
-import { ScriptedRuntime } from "@/src/engine/scripted-runtime";
+import { OpenAICompatibleRuntime } from "@/src/engine/openai-compatible-runtime";
 import { SessionActor } from "@/src/engine/session-actor";
 import type { Scenario } from "@/src/engine/scenario";
+import { loadSessionCredential } from "@/src/model-credentials";
 import { loadSessionSetup, loadSessionSnapshot, saveSessionSnapshot, type SessionSetupConfig, type SessionSnapshot } from "@/src/session-storage";
 
 type Id = "A" | "B" | "Z";
 type Resource = Scenario["resources"][number];
 type AudienceChoice = "both" | "A" | "B";
 
-const party = (id: "A" | "B"): AgentSeat => ({ id, role: "party", kind: "agent", model: { provider: "ollama", model: "scripted" } });
+const party = (id: "A" | "B", model: SessionSetupConfig["A"]): AgentSeat => ({ id, role: "party", kind: "agent", model });
 
-const defaultConfig: SessionSetupConfig = { A: { provider: "ollama", model: "scripted" }, B: { provider: "ollama", model: "scripted" } };
+const defaultModel = { provider: "ollama" as const, model: "llama3.2", endpoint: "http://localhost:11434/v1/" };
+const defaultConfig: SessionSetupConfig = { A: defaultModel, B: defaultModel };
 
-function makeActor(snapshot?: SessionSnapshot<Id> | null, setup: SessionSetupConfig = defaultConfig) {
+function makeActor(scenario: Scenario, sessionId: string, snapshot?: SessionSnapshot<Id> | null, setup: SessionSetupConfig = defaultConfig) {
   const seats: readonly SeatConfig[] = [
-    { ...party("A"), model: setup.A },
-    { ...party("B"), model: setup.B },
+    party("A", setup.A),
+    party("B", setup.B),
     { id: "Z", role: "mediator", kind: "human" },
   ];
-  const session = snapshot?.session ?? createSession<Id>(seats);
+  const initialStates = Object.fromEntries((["A", "B"] as const).map((id) => {
+    const authored = scenario.parties[id].initialState;
+    return [id, {
+      anger: authored.anger,
+      trustMediator: authored.trustMediator,
+      trustOtherParty: authored.trustOtherParty,
+      willingnessToSettle: authored.willingnessToSettle,
+      rigidity: authored.rigidity,
+      fatigue: authored.fatigue,
+      position: authored.position,
+      reservationValue: authored.reservationValue,
+      hiddenInterests: authored.interests,
+    }];
+  })) as Partial<Record<Id, Partial<NegotiationState>>>;
+  const personas = Object.fromEntries((["A", "B"] as const).map((id) => {
+    const party = scenario.parties[id];
+    return [id, {
+      displayName: `${party.persona.role} (Party ${id})`,
+      brief: [
+        `Role: ${party.bargainingRole}. Speaking style: ${party.persona.speakingStyle}.`,
+        `Goals: ${party.persona.goals.join("; ")}.`,
+        `Behavior: ${party.persona.behavioralInstructions.join("; ")}.`,
+        `BATNA: ${party.alternatives.batna} WATNA: ${party.alternatives.watna}`,
+        `Settlement authority: ${party.authorityLimit}.`,
+        `Shared facts: ${scenario.sharedFacts.join("; ")}.`,
+        `Case resources you may use: ${scenario.resources.filter((resource) => resource.audience.includes(id)).map((resource) => `${resource.title}: ${resource.body}`).join("; ")}.`,
+      ].join(" "),
+    }];
+  })) as Partial<Record<Id, { displayName: string; brief: string }>>;
+  const session = snapshot?.session ?? createSession<Id>(seats, initialStates, personas);
+  if (!snapshot) {
+    for (const id of ["A", "B"] as const) {
+      const runtime = session.runtimes[id];
+      if (!runtime) continue;
+      runtime.knowledge.privateFacts = [...scenario.parties[id].privateFacts];
+      runtime.knowledge.documentIds = scenario.resources.filter((resource) => resource.audience.includes(id)).map((resource) => resource.id);
+    }
+  }
   const driver = new TurnDriver(session, {
-    A: new ScriptedRuntime([
-      { utterance: "We want a practical resolution, but the underlying harm must be acknowledged.", reaction: { trustMediatorDelta: 4 } },
-      { utterance: "Privately, certainty matters more than holding every part of our Position.", reaction: { rigidityDelta: -7 } },
-      { utterance: "That proposal moves the conversation, though important terms remain open.", reaction: { willingnessToSettleDelta: 5 } },
-    ], setup.A),
-    B: new ScriptedRuntime([
-      { utterance: "We are prepared to listen, but we see the facts differently.", reaction: { trustMediatorDelta: 3 } },
-      { utterance: "A durable agreement would need to address more than the headline number.", reaction: { rigidityDelta: -5 } },
-      { utterance: "We can continue working from there.", reaction: { willingnessToSettleDelta: 6 } },
-    ], setup.B),
+    A: new OpenAICompatibleRuntime(setup.A, loadSessionCredential(sessionId, "A")),
+    B: new OpenAICompatibleRuntime(setup.B, loadSessionCredential(sessionId, "B")),
   });
   if (snapshot) driver.invocations.push(...snapshot.invocations);
   return new SessionActor(driver, snapshot?.phase);
@@ -69,7 +100,7 @@ function toneFor(value: number): { label: string; tone: string } {
 
 export function SessionWorkspace({ sessionId, scenario, resources }: { sessionId: string; scenario: Scenario; resources: Resource[] }) {
   const router = useRouter();
-  const [actor, setActor] = useState(() => makeActor());
+  const [actor, setActor] = useState(() => makeActor(scenario, sessionId));
   const [phase, setPhase] = useState(actor.phase);
   const [revision, setRevision] = useState(0);
   const [text, setText] = useState("Thank you both for being here. What would make this conversation useful today?");
@@ -79,6 +110,7 @@ export function SessionWorkspace({ sessionId, scenario, resources }: { sessionId
   const [debug, setDebug] = useState(false);
   const [confirm, setConfirm] = useState<"agreement" | "impasse" | null>(null);
   const [recovered, setRecovered] = useState(false);
+  const [ready, setReady] = useState(false);
   const [setupConfig, setSetupConfig] = useState<SessionSetupConfig>(defaultConfig);
   void revision;
 
@@ -87,14 +119,15 @@ export function SessionWorkspace({ sessionId, scenario, resources }: { sessionId
     const configured = loadSessionSetup(sessionId) ?? defaultConfig;
     if (snapshot && snapshot.scenarioSlug !== scenario.slug) return;
     const timer = window.setTimeout(() => {
-      const restored = makeActor(snapshot, configured);
+      const restored = makeActor(scenario, sessionId, snapshot, configured);
       setActor(restored);
       setPhase(restored.phase);
       setSetupConfig(configured);
       setRecovered(Boolean(snapshot));
+      setReady(true);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [scenario.slug, sessionId]);
+  }, [scenario, sessionId]);
 
   function persist() {
     saveSessionSnapshot({ version: 1, sessionId, scenarioSlug: scenario.slug, phase: actor.phase, savedAt: new Date().toISOString(), session: actor.session, invocations: [...actor.driver.invocations] });
@@ -180,7 +213,7 @@ export function SessionWorkspace({ sessionId, scenario, resources }: { sessionId
             {!events.length && <div className="mx-auto max-w-md py-16 text-center">
               <h2 className="text-xl font-semibold">The room is ready.</h2>
               <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Open the Session, then address one Party or both.</p>
-              <button className="button-primary mt-5" onClick={() => act({ type: "OPEN_SESSION" })}>Open Session</button>
+              <button className="button-primary mt-5" disabled={!ready} onClick={() => act({ type: "OPEN_SESSION" })}>{ready ? "Open Session" : "Loading Party configuration…"}</button>
             </div>}
             {events.map((event) => <article className={`event event-${event.sender === "SYSTEM" ? "system" : event.sender.toLowerCase()}`} key={event.id}>
               <div className="event-bubble">
@@ -229,7 +262,7 @@ export function SessionWorkspace({ sessionId, scenario, resources }: { sessionId
           {debug && <div className="debug-panel mt-6">
             <h2 className="font-semibold">Provider trace</h2>
             <p className="mt-1 text-xs leading-5 text-[var(--muted)]">A: {setupConfig.A.provider}/{setupConfig.A.model}<br />B: {setupConfig.B.provider}/{setupConfig.B.model}<br />{actor.driver.invocations.length} calls · prompt version proto-02</p>
-            <ol className="mt-3 space-y-2 text-xs">{actor.driver.invocations.map((call, index) => <li className="rounded-lg border border-[var(--line)] p-2" key={`${call.seatId}-${index}`}><details><summary className="cursor-pointer font-semibold">Party {call.seatId} · attempt {call.attempt} · {call.ok ? "complete" : "failed"}</summary><div className="mt-2 space-y-1 text-[var(--muted)]"><p>{call.visibleEventIds.length} visible Events · {call.promptVersion}</p><p>Before: anger {call.stateBefore.anger}, trust {call.stateBefore.trustMediator}</p><p>After: anger {call.stateAfter.anger}, trust {call.stateAfter.trustMediator}</p>{call.response && <pre className="overflow-x-auto whitespace-pre-wrap">{JSON.stringify(call.response, null, 2)}</pre>}{call.error && <p>{call.error}</p>}</div></details></li>)}</ol>
+            <ol className="mt-3 space-y-2 text-xs">{actor.driver.invocations.map((call, index) => <li className="rounded-lg border border-[var(--line)] p-2" key={`${call.seatId}-${index}`}><details><summary className="cursor-pointer font-semibold">Party {call.seatId} · attempt {call.attempt} · {call.ok ? "complete" : "failed"}</summary><div className="mt-2 space-y-1 text-[var(--muted)]"><p>{call.visibleEventIds.length} visible Events · {call.promptVersion}</p>{call.provider && <p>{call.provider.latencyMs} ms · request {call.provider.requestId ?? "unreported"} · {call.provider.tokenUsage?.total ?? "?"} tokens</p>}<p>Before: anger {call.stateBefore.anger}, trust {call.stateBefore.trustMediator}</p><p>After: anger {call.stateAfter.anger}, trust {call.stateAfter.trustMediator}</p>{call.provider && <details><summary>Sanitized network payload</summary><pre className="overflow-x-auto whitespace-pre-wrap">{JSON.stringify({ request: call.provider.request, response: call.provider.response }, null, 2)}</pre></details>}{call.response && <pre className="overflow-x-auto whitespace-pre-wrap">{JSON.stringify(call.response, null, 2)}</pre>}{call.error && <p>{call.error}</p>}</div></details></li>)}</ol>
           </div>}
         </aside>
       </div>

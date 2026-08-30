@@ -66,12 +66,21 @@ export interface AgentResponse {
 
 export interface DriverRuntime {
   readonly config: ModelConfig;
+  readonly lastCall?: RuntimeCallAudit;
   respond(input: {
     projection: readonly MediationEvent[];
     runtime: PartyRuntime;
     /** True for threshold-forced responses: the model must speak. */
     mandatory: boolean;
   }): Promise<AgentResponse>;
+}
+
+export interface RuntimeCallAudit {
+  requestId?: string;
+  latencyMs: number;
+  tokenUsage?: { prompt?: number; completion?: number; total?: number };
+  request: unknown;
+  response: unknown;
 }
 
 // ---------------------------------------------------------------------------
@@ -138,6 +147,7 @@ export interface InvocationAttempt<T extends string> {
   stateAfter: NegotiationState;
   response?: AgentResponse;
   error?: string;
+  provider?: RuntimeCallAudit;
 }
 
 interface Consideration<T extends string> {
@@ -437,6 +447,7 @@ export class TurnDriver<T extends string> {
           stateBefore,
           stateAfter: stateBefore,
           error: e instanceof Error ? e.message : String(e),
+          provider: model.lastCall,
         });
         if (!isTransportError(e)) break; // structural: no auto-retry (decision 8)
       }
@@ -470,6 +481,7 @@ export class TurnDriver<T extends string> {
       stateBefore,
       stateAfter: applyPartyReaction(stateBefore, response.reaction),
       response,
+      provider: model.lastCall,
     });
     return response;
   }
