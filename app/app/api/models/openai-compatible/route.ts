@@ -136,7 +136,14 @@ export async function POST(request: Request) {
     ...(config.seed === undefined ? {} : { seed: config.seed }),
     ...(config.provider === "venice" ? {
       venice_parameters: venicePartyParameters,
-      response_format: { type: "json_schema", json_schema: partyResponseJsonSchema },
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "party_response",
+          strict: true,
+          schema: partyResponseJsonSchema,
+        },
+      },
     } : {}),
   };
   const started = performance.now();

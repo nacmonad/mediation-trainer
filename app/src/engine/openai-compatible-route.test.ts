@@ -128,8 +128,16 @@ test("Venice requests use its native strict structured-output controls", async (
       enable_e2ee: true,
     });
     assert.equal((requestBody.response_format as { type?: string }).type, "json_schema");
+    assert.equal(
+      (requestBody.response_format as { json_schema?: { name?: string } }).json_schema?.name,
+      "party_response",
+    );
+    assert.equal(
+      (requestBody.response_format as { json_schema?: { strict?: boolean } }).json_schema?.strict,
+      true,
+    );
     assert.deepEqual(
-      (requestBody.response_format as { json_schema?: { required?: string[] } }).json_schema?.required,
+      (requestBody.response_format as { json_schema?: { schema?: { required?: string[] } } }).json_schema?.schema?.required,
       ["utterance", "reaction"],
     );
   } finally {
