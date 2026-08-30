@@ -104,6 +104,8 @@ The engine suite covers Scenario parsing, audience Projections, disclosure, Offe
 
 ## Roadmap
 
+The proposed commercial path and one-week founding-beta scope are documented in the [paid SaaS launch strategy](docs/saas-launch-strategy.md).
+
 - Visual Scenario builder with schema validation and preview
 - Community-authored Scenario import, export, and curation
 - Optional Venice Character personas for stable voice and temperament
