@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const providers = ["Ollama", "OpenAI", "Anthropic"] as const;
 
@@ -29,6 +29,7 @@ function SeatFields({ party, model, setModel }: { party: "A" | "B"; model: strin
 }
 
 export function PartySetup({ scenarioSlug }: { scenarioSlug: string }) {
+  const router = useRouter();
   const [modelA, setModelA] = useState("scripted");
   const [modelB, setModelB] = useState("scripted");
   const valid = Boolean(modelA.trim() && modelB.trim());
@@ -41,12 +42,13 @@ export function PartySetup({ scenarioSlug }: { scenarioSlug: string }) {
         <SeatFields party="A" model={modelA} setModel={setModelA} />
         <SeatFields party="B" model={modelB} setModel={setModelB} />
       </div>
-      <LinkButton disabled={!valid} href={`/sessions/new?scenario=${scenarioSlug}`} />
+      <button
+        className="button-primary mt-7 w-full"
+        disabled={!valid}
+        onClick={() => router.push(`/sessions/${crypto.randomUUID()}?scenario=${scenarioSlug}`)}
+      >
+        Begin Session
+      </button>
     </aside>
   );
-}
-
-function LinkButton({ disabled, href }: { disabled: boolean; href: string }) {
-  if (disabled) return <button className="button-primary mt-7 w-full" disabled>Begin Session</button>;
-  return <Link className="button-primary mt-7 w-full" href={href}>Begin Session</Link>;
 }
