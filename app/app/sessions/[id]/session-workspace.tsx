@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { createSession, type AgentSeat, type MediationEvent, type NegotiationState, type SeatConfig } from "@/src/engine/domain";
-import { TurnDriver } from "@/src/engine/driver";
+import { createSession, type AgentSeat, type MediationEvent, type ModelConfig, type NegotiationState, type SeatConfig } from "@/src/engine/domain";
+import { AnthropicRuntime } from "@/src/engine/anthropic-runtime";
+import { TurnDriver, type DriverRuntime } from "@/src/engine/driver";
 import { OpenAICompatibleRuntime } from "@/src/engine/openai-compatible-runtime";
 import { SessionActor } from "@/src/engine/session-actor";
 import type { Scenario } from "@/src/engine/scenario";
@@ -19,6 +20,12 @@ const party = (id: "A" | "B", model: SessionSetupConfig["A"]): AgentSeat => ({ i
 
 const defaultModel = { provider: "ollama" as const, model: "llama3.2", endpoint: "http://localhost:11434/v1/" };
 const defaultConfig: SessionSetupConfig = { A: defaultModel, B: defaultModel };
+
+function makeRuntime(config: ModelConfig, sessionId: string, partyId: "A" | "B"): DriverRuntime {
+  return config.provider === "anthropic"
+    ? new AnthropicRuntime(config, sessionId, partyId)
+    : new OpenAICompatibleRuntime(config, sessionId, partyId);
+}
 
 function makeActor(scenario: Scenario, sessionId: string, snapshot?: SessionSnapshot<Id> | null, setup: SessionSetupConfig = defaultConfig) {
   const seats: readonly SeatConfig[] = [
@@ -65,8 +72,8 @@ function makeActor(scenario: Scenario, sessionId: string, snapshot?: SessionSnap
     }
   }
   const driver = new TurnDriver(session, {
-    A: new OpenAICompatibleRuntime(setup.A, sessionId, "A"),
-    B: new OpenAICompatibleRuntime(setup.B, sessionId, "B"),
+    A: makeRuntime(setup.A, sessionId, "A"),
+    B: makeRuntime(setup.B, sessionId, "B"),
   });
   if (snapshot) driver.invocations.push(...snapshot.invocations);
   return new SessionActor(driver, snapshot?.phase);

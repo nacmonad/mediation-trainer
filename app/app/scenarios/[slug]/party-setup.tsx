@@ -8,15 +8,17 @@ import { saveSessionSetup } from "@/src/session-storage";
 
 const providers: readonly { value: ModelConfig["provider"]; label: string }[] = [
   { value: "openai", label: "OpenAI" },
+  { value: "anthropic", label: "Anthropic" },
   { value: "venice", label: "Venice AI" },
   { value: "ollama", label: "Ollama (OpenAI API)" },
   { value: "openai-compatible", label: "Other OpenAI-compatible" },
 ];
 
-type SelectableProvider = "openai" | "venice" | "ollama" | "openai-compatible";
+type SelectableProvider = "openai" | "anthropic" | "venice" | "ollama" | "openai-compatible";
 
 const defaults: Record<SelectableProvider, Pick<ModelConfig, "endpoint" | "model">> = {
   openai: { endpoint: "https://api.openai.com/v1/", model: "gpt-5.6-luna" },
+  anthropic: { endpoint: "https://api.anthropic.com/v1/", model: "claude-sonnet-4-5" },
   venice: { endpoint: "https://api.venice.ai/api/v1", model: "" },
   ollama: { endpoint: "http://localhost:11434/v1/", model: "llama3.2" },
   "openai-compatible": { endpoint: "https://openrouter.ai/api/v1/", model: "" },
@@ -43,9 +45,9 @@ function SeatFields({ party, config, apiKey, setApiKey, setConfig }: { party: "A
           <small id={`party-${party}-model-help`}>Use a model available from {providerLabel}.</small>
         </label>
         <label className="field sm:col-span-2 lg:col-span-1 xl:col-span-2">
-          <span>OpenAI-compatible base URL</span>
+          <span>{config.provider === "anthropic" ? "API base URL" : "OpenAI-compatible base URL"}</span>
           <input type="url" value={config.endpoint ?? ""} onChange={(event) => setConfig({ ...config, endpoint: event.target.value })} placeholder="https://provider.example/v1/" />
-          <small>The adapter appends <code>chat/completions</code>.</small>
+          <small>{config.provider === "anthropic" ? <>The adapter appends <code>messages</code>.</> : <>The adapter appends <code>chat/completions</code>.</>}</small>
         </label>
         <label className="field sm:col-span-2 lg:col-span-1 xl:col-span-2">
           <span>API key <small>(optional for local models)</small></span>
