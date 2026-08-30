@@ -1,16 +1,19 @@
 import { z } from "zod";
 
+import { readCredential } from "@/src/server-credential-vault";
+
 export const runtime = "nodejs";
 
 const requestSchema = z.object({
   config: z.object({
-    provider: z.enum(["openai-compatible", "openai", "ollama"]),
+    provider: z.enum(["openai-compatible", "openai", "venice", "ollama"]),
     model: z.string().min(1),
     endpoint: z.string().url(),
     temperature: z.number().min(0).max(2).optional(),
     seed: z.number().int().optional(),
   }).strict(),
-  apiKey: z.string(),
+  sessionId: z.string().uuid(),
+  partyId: z.enum(["A", "B"]),
   prompt: z.object({ system: z.string().min(1), user: z.string().min(1) }).strict(),
 }).strict();
 
@@ -20,16 +23,35 @@ const upstreamSchema = z.object({
   usage: z.object({ prompt_tokens: z.number().int().nonnegative().optional(), completion_tokens: z.number().int().nonnegative().optional(), total_tokens: z.number().int().nonnegative().optional() }).optional(),
 }).passthrough();
 
-const agentResponseSchema = z.object({
-  utterance: z.string(),
-  reaction: z.object({
+const reactionSchema = z.preprocess((value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const reaction = { ...value } as Record<string, unknown>;
+  const aliases = {
+    anger: "angerDelta",
+    trustMediator: "trustMediatorDelta",
+    trustOtherParty: "trustOtherPartyDelta",
+    willingnessToSettle: "willingnessToSettleDelta",
+    rigidity: "rigidityDelta",
+    fatigue: "fatigueDelta",
+  } as const;
+  for (const [alias, canonical] of Object.entries(aliases)) {
+    if (!(alias in reaction) || canonical in reaction) continue;
+    reaction[canonical] = reaction[alias];
+    delete reaction[alias];
+  }
+  return reaction;
+}, z.object({
     angerDelta: z.number().finite().min(-12).max(12).optional(),
     trustMediatorDelta: z.number().finite().min(-12).max(12).optional(),
     trustOtherPartyDelta: z.number().finite().min(-12).max(12).optional(),
     willingnessToSettleDelta: z.number().finite().min(-12).max(12).optional(),
     rigidityDelta: z.number().finite().min(-12).max(12).optional(),
     fatigueDelta: z.number().finite().min(-12).max(12).optional(),
-  }).strict(),
+  }).strict());
+
+const agentResponseSchema = z.object({
+  utterance: z.string(),
+  reaction: reactionSchema,
   offer: z.object({ amount: z.number().finite().nonnegative(), terms: z.string().optional() }).strict().optional(),
 }).strict();
 
@@ -51,11 +73,59 @@ function parseJsonContent(content: string): unknown {
   }
 }
 
+const partyResponseJsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["utterance", "reaction"],
+  properties: {
+    utterance: { type: "string" },
+    reaction: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        angerDelta: { type: "number", minimum: -12, maximum: 12 },
+        trustMediatorDelta: { type: "number", minimum: -12, maximum: 12 },
+        trustOtherPartyDelta: { type: "number", minimum: -12, maximum: 12 },
+        willingnessToSettleDelta: { type: "number", minimum: -12, maximum: 12 },
+        rigidityDelta: { type: "number", minimum: -12, maximum: 12 },
+        fatigueDelta: { type: "number", minimum: -12, maximum: 12 },
+      },
+    },
+    offer: {
+      type: "object",
+      additionalProperties: false,
+      required: ["amount"],
+      properties: {
+        amount: { type: "number", minimum: 0 },
+        terms: { type: "string" },
+      },
+    },
+  },
+} as const;
+
+const venicePartyParameters = {
+  // The simulator supplies the complete Party persona and closed case record.
+  include_venice_system_prompt: false,
+  enable_web_search: "off",
+  enable_web_scraping: false,
+  enable_web_citations: false,
+  enable_x_search: false,
+  // Party turns need only the contract response, never model reasoning text.
+  disable_thinking: true,
+  strip_thinking_response: true,
+  // Ask Venice to keep inference within its end-to-end encrypted path.
+  enable_e2ee: true,
+} as const;
+
 export async function POST(request: Request) {
   const input = requestSchema.safeParse(await request.json().catch(() => null));
   if (!input.success) return Response.json({ error: `invalid request: ${input.error.message}` }, { status: 400 });
 
-  const { config, apiKey, prompt } = input.data;
+  const { config, sessionId, partyId, prompt } = input.data;
+  const apiKey = readCredential(sessionId, partyId);
+  if (apiKey === undefined) {
+    return Response.json({ error: "Provider credential is unavailable. Return to Scenario setup and begin a new Session." }, { status: 401 });
+  }
   const upstreamRequest = {
     model: config.model,
     messages: [
@@ -64,6 +134,17 @@ export async function POST(request: Request) {
     ],
     ...(config.temperature === undefined ? {} : { temperature: config.temperature }),
     ...(config.seed === undefined ? {} : { seed: config.seed }),
+    ...(config.provider === "venice" ? {
+      venice_parameters: venicePartyParameters,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "party_response",
+          strict: true,
+          schema: partyResponseJsonSchema,
+        },
+      },
+    } : {}),
   };
   const started = performance.now();
   let upstream: Response;

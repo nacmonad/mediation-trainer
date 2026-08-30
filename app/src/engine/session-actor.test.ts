@@ -94,3 +94,27 @@ test("manual retry resumes the failed Party call without duplicating the Mediato
   assert.equal(actor.session.log.filter((event) => event.sender === "A").length, 1);
   assert.equal(actor.driver.hasPendingBeat, false);
 });
+
+test("addressing both Parties considers each Party only once in the beat", async () => {
+  const calls = { A: 0, B: 0 };
+  const runtime = (partyId: "A" | "B"): DriverRuntime => ({
+    config: { provider: "ollama", model: `party-${partyId}` },
+    async respond() {
+      calls[partyId] += 1;
+      return { utterance: `${partyId} responds.`, reaction: {} };
+    },
+  });
+  const actor = new SessionActor(new TurnDriver(createSession<Id>(seats), {
+    A: runtime("A"),
+    B: runtime("B"),
+  }));
+
+  await actor.dispatch({ type: "OPEN_SESSION" });
+  await actor.dispatch({ type: "SEND", audience: ["A", "B"], text: "Opening question." });
+
+  assert.deepEqual(calls, { A: 1, B: 1 });
+  assert.deepEqual(
+    actor.session.log.filter((event) => event.sender === "A" || event.sender === "B").map((event) => event.sender),
+    ["A", "B"],
+  );
+});

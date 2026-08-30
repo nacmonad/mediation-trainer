@@ -9,7 +9,6 @@ import { TurnDriver } from "@/src/engine/driver";
 import { OpenAICompatibleRuntime } from "@/src/engine/openai-compatible-runtime";
 import { SessionActor } from "@/src/engine/session-actor";
 import type { Scenario } from "@/src/engine/scenario";
-import { loadSessionCredential } from "@/src/model-credentials";
 import { loadSessionSetup, loadSessionSnapshot, saveSessionSnapshot, type SessionSetupConfig, type SessionSnapshot } from "@/src/session-storage";
 
 type Id = "A" | "B" | "Z";
@@ -66,8 +65,8 @@ function makeActor(scenario: Scenario, sessionId: string, snapshot?: SessionSnap
     }
   }
   const driver = new TurnDriver(session, {
-    A: new OpenAICompatibleRuntime(setup.A, loadSessionCredential(sessionId, "A")),
-    B: new OpenAICompatibleRuntime(setup.B, loadSessionCredential(sessionId, "B")),
+    A: new OpenAICompatibleRuntime(setup.A, sessionId, "A"),
+    B: new OpenAICompatibleRuntime(setup.B, sessionId, "B"),
   });
   if (snapshot) driver.invocations.push(...snapshot.invocations);
   return new SessionActor(driver, snapshot?.phase);
@@ -79,6 +78,8 @@ function eventText(event: MediationEvent<Id>): string {
   if (payload.type === "session_opened") return "The joint Session has opened.";
   if (payload.type === "caucus_begin") return `Caucus with Party ${String(payload.party)} begins.`;
   if (payload.type === "caucus_end") return `Caucus with Party ${String(payload.party)} ends.`;
+  if (payload.type === "declared_agreement") return "Agreement Achieved 🎆";
+  if (payload.type === "declared_impasse") return "Impasse Hit ⛰️";
   if (payload.type === "session_ended") return `Session ended: ${String(payload.outcome)}.`;
   if (event.kind === "offer" && typeof payload.amount === "number") return `Offer: $${payload.amount.toLocaleString()}`;
   return event.kind.replace("_", " ");

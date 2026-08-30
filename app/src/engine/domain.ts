@@ -21,7 +21,7 @@ export type Role = "party" | "mediator" | "evaluator";
 export type Kind = "human" | "agent";
 
 export interface ModelConfig {
-  provider: "openai-compatible" | "openai" | "anthropic" | "ollama";
+  provider: "openai-compatible" | "openai" | "venice" | "anthropic" | "ollama";
   model: string;
   endpoint?: string;
   temperature?: number;
