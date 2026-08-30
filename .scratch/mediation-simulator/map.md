@@ -44,6 +44,7 @@ A buildable MVP spec for a **mediator-training simulator**: a human practices as
 - XState session machine shape: seven phases decided in [02](./issues/02-turn-orchestration.md); guards/actors wiring + engine lift into the app ticketed as [07](./issues/07-xstate-session-actor.md).
 - Audit record schema per model call (PLAN §10) — depends on 01; `InvocationRecord` sketched in the prototype, retry/attempt semantics decided in [02](./issues/02-turn-orchestration.md).
 - Phase 0 vertical-slice test strategy: which automated tests prove caucus visibility + reducer determinism — depends on 01, 02; both settled, unblocked.
+- Scenario editor UI: in-app Scenario authoring (parties/personas, case resources with per-audience visibility, disclosure and threshold rules) per PLAN §12 "Scenario editor (planned feature)". Schema (06) and the production Scenario layer (08) are settled, so the engine contract is ready; editor UX, resource upload/derivation, authoring guidance, and sharing are not. Needs a wayfinder session before implementation.
 
 ## Out of scope
 
