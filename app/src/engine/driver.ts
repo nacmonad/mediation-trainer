@@ -33,6 +33,7 @@ import {
   caucusAudience,
   jointAudience,
 } from "./domain.ts";
+import { PROMPT_VERSION } from "./prompt-compiler";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
@@ -180,7 +181,7 @@ export class TurnDriver<T extends string> {
     session: Session<T>,
     models: Partial<Record<T, DriverRuntime>>,
     rules: readonly ScenarioRule<T>[] = [],
-    promptVersion = "proto-02"
+    promptVersion = PROMPT_VERSION
   ) {
     this.session = session;
     this.models = models;

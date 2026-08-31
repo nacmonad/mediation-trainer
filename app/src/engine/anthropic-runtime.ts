@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import type { MediationEvent, ModelConfig, PartyRuntime } from "./domain";
 import { TurnError, type AgentResponse, type DriverRuntime, type RuntimeCallAudit } from "./driver";
-import { compilePartyPrompt } from "./openai-compatible-runtime";
+import { compilePartyPrompt, type ScenarioPromptView } from "./prompt-compiler";
 
 const apiResponseSchema = z.object({
   response: z.object({
@@ -38,11 +38,12 @@ export class AnthropicRuntime implements DriverRuntime {
     readonly config: ModelConfig,
     private readonly sessionId: string,
     private readonly partyId: "A" | "B",
+    private readonly scenario: ScenarioPromptView,
   ) {}
 
   async respond(input: { projection: readonly MediationEvent[]; runtime: PartyRuntime; mandatory: boolean }): Promise<AgentResponse> {
     this.lastCall = undefined;
-    const prompt = compilePartyPrompt(input);
+    const prompt = compilePartyPrompt({ ...input, scenario: this.scenario });
     let response: Response;
     try {
       response = await fetch("/api/models/anthropic", {

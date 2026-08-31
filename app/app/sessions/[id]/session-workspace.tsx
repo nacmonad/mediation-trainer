@@ -10,6 +10,7 @@ import { TurnDriver, type DriverRuntime } from "@/src/engine/driver";
 import { OpenAICompatibleRuntime } from "@/src/engine/openai-compatible-runtime";
 import { SessionActor } from "@/src/engine/session-actor";
 import type { Scenario } from "@/src/engine/scenario";
+import { PROMPT_VERSION, type ScenarioPromptView } from "@/src/engine/prompt-compiler";
 import { loadSessionSetup, loadSessionSnapshot, saveSessionSnapshot, type SessionSetupConfig, type SessionSnapshot } from "@/src/session-storage";
 
 type Id = "A" | "B" | "Z";
@@ -21,10 +22,10 @@ const party = (id: "A" | "B", model: SessionSetupConfig["A"]): AgentSeat => ({ i
 const defaultModel = { provider: "openai-compatible" as const, model: "llama3.2", endpoint: "http://localhost:11434/v1/" };
 const defaultConfig: SessionSetupConfig = { A: defaultModel, B: defaultModel };
 
-function makeRuntime(config: ModelConfig, sessionId: string, partyId: "A" | "B"): DriverRuntime {
+function makeRuntime(config: ModelConfig, sessionId: string, partyId: "A" | "B", scenario: ScenarioPromptView): DriverRuntime {
   return config.provider === "anthropic"
-    ? new AnthropicRuntime(config, sessionId, partyId)
-    : new OpenAICompatibleRuntime(config, sessionId, partyId);
+    ? new AnthropicRuntime(config, sessionId, partyId, scenario)
+    : new OpenAICompatibleRuntime(config, sessionId, partyId, scenario);
 }
 
 function makeActor(scenario: Scenario, sessionId: string, snapshot?: SessionSnapshot<Id> | null, setup: SessionSetupConfig = defaultConfig) {
@@ -48,17 +49,15 @@ function makeActor(scenario: Scenario, sessionId: string, snapshot?: SessionSnap
     }];
   })) as Partial<Record<Id, Partial<NegotiationState>>>;
   const personas = Object.fromEntries((["A", "B"] as const).map((id) => {
-    const party = scenario.parties[id];
+    const authored = scenario.parties[id];
     return [id, {
-      displayName: `${party.persona.role} (Party ${id})`,
+      displayName: `${authored.persona.role} (Party ${id})`,
       brief: [
-        `Role: ${party.bargainingRole}. Speaking style: ${party.persona.speakingStyle}.`,
-        `Goals: ${party.persona.goals.join("; ")}.`,
-        `Behavior: ${party.persona.behavioralInstructions.join("; ")}.`,
-        `BATNA: ${party.alternatives.batna} WATNA: ${party.alternatives.watna}`,
-        `Settlement authority: ${party.authorityLimit}.`,
-        `Shared facts: ${scenario.sharedFacts.join("; ")}.`,
-        `Case resources you may use: ${scenario.resources.filter((resource) => resource.audience.includes(id)).map((resource) => `${resource.title}: ${resource.body}`).join("; ")}.`,
+        `Role: ${authored.bargainingRole}. Speaking style: ${authored.persona.speakingStyle}.`,
+        `Goals: ${authored.persona.goals.join("; ")}.`,
+        `Behavior: ${authored.persona.behavioralInstructions.join("; ")}.`,
+        `BATNA: ${authored.alternatives.batna} WATNA: ${authored.alternatives.watna}`,
+        `Settlement authority: ${authored.authorityLimit}.`,
       ].join(" "),
     }];
   })) as Partial<Record<Id, { displayName: string; brief: string }>>;
@@ -71,9 +70,10 @@ function makeActor(scenario: Scenario, sessionId: string, snapshot?: SessionSnap
       runtime.knowledge.documentIds = scenario.resources.filter((resource) => resource.audience.includes(id)).map((resource) => resource.id);
     }
   }
+  const scenarioView: ScenarioPromptView = { sharedFacts: scenario.sharedFacts, resources: scenario.resources };
   const driver = new TurnDriver(session, {
-    A: makeRuntime(setup.A, sessionId, "A"),
-    B: makeRuntime(setup.B, sessionId, "B"),
+    A: makeRuntime(setup.A, sessionId, "A", scenarioView),
+    B: makeRuntime(setup.B, sessionId, "B", scenarioView),
   });
   if (snapshot) driver.invocations.push(...snapshot.invocations);
   return new SessionActor(driver, snapshot?.phase);
@@ -269,7 +269,7 @@ export function SessionWorkspace({ sessionId, scenario, resources }: { sessionId
           {(["agreement", "impasse", "walkout"] as string[]).includes(phase) && <button className="button-primary mt-5 w-full" onClick={() => void enterReview()}>Enter review</button>}
           {debug && <div className="debug-panel mt-6">
             <h2 className="font-semibold">Provider trace</h2>
-            <p className="mt-1 text-xs leading-5 text-[var(--muted)]">A: {setupConfig.A.provider}/{setupConfig.A.model}<br />B: {setupConfig.B.provider}/{setupConfig.B.model}<br />{actor.driver.invocations.length} calls · prompt version proto-02</p>
+            <p className="mt-1 text-xs leading-5 text-[var(--muted)]">A: {setupConfig.A.provider}/{setupConfig.A.model}<br />B: {setupConfig.B.provider}/{setupConfig.B.model}<br />{actor.driver.invocations.length} calls · prompt version {actor.driver.invocations[0]?.promptVersion ?? PROMPT_VERSION}</p>
             <ol className="mt-3 space-y-2 text-xs">{actor.driver.invocations.map((call, index) => <li className="rounded-lg border border-[var(--line)] p-2" key={`${call.seatId}-${index}`}><details><summary className="cursor-pointer font-semibold">Party {call.seatId} · attempt {call.attempt} · {call.ok ? "complete" : "failed"}</summary><div className="mt-2 space-y-1 text-[var(--muted)]"><p>{call.visibleEventIds.length} visible Events · {call.promptVersion}</p>{call.provider && <p>{call.provider.latencyMs} ms · request {call.provider.requestId ?? "unreported"} · {call.provider.tokenUsage?.total ?? "?"} tokens</p>}<p>Before: anger {call.stateBefore.anger}, trust {call.stateBefore.trustMediator}</p><p>After: anger {call.stateAfter.anger}, trust {call.stateAfter.trustMediator}</p>{call.provider && <details><summary>Sanitized network payload</summary><pre className="overflow-x-auto whitespace-pre-wrap">{JSON.stringify({ request: call.provider.request, response: call.provider.response }, null, 2)}</pre></details>}{call.response && <pre className="overflow-x-auto whitespace-pre-wrap">{JSON.stringify(call.response, null, 2)}</pre>}{call.error && <p>{call.error}</p>}</div></details></li>)}</ol>
           </div>}
         </aside>
